@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audit Logs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="dashboard">
+
+<h2>Audit Logs</h2>
+
+{% for log in logs %}
+<div class="card">
+{{ log }}
+</div>
+{% endfor %}
+
+<div style="margin-top:20px;">
+<a href="/dashboard">
+<button>Return to Main Menu</button>
+</a>
+</div>
+
+</div>
+
+</body>
+</html>

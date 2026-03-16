@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Verify Evidence</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Verify Evidence Integrity</h2>
+
+<form method="POST" enctype="multipart/form-data">
+
+<input type="file" name="file" required>
+
+<button type="submit">Verify</button>
+
+</form>
+
+<br>
+
+<a href="/dashboard">
+<button>Return to Main Menu</button>
+</a>
+
+</div>
+
+</body>
+</html>
