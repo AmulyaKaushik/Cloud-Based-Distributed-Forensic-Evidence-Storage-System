@@ -10,24 +10,67 @@
 
     <div class="dashboard-header">
         <h2>Chain-of-Custody Audit Logs</h2>
-        <a href="/dashboard"><button class="btn-secondary">Back to Dashboard</button></a>
+        <div style="display: flex; gap: 10px;">
+            <a href="/logs/export?user={{ filter_user }}&action={{ filter_action }}&evidence={{ filter_evidence }}&status={{ filter_status }}"><button class="btn-secondary">Export CSV</button></a>
+            <a href="/dashboard"><button class="btn-secondary">Back</button></a>
+        </div>
     </div>
 
     <form method="GET" class="filter-bar">
         <input name="user" placeholder="Filter by user" value="{{ filter_user }}">
-        <input name="action" placeholder="Filter by action (e.g. UPLOAD)" value="{{ filter_action }}">
+        <input name="action" placeholder="Filter by action (LOGIN, UPLOAD, VERIFY, DOWNLOAD, etc.)" value="{{ filter_action }}">
+        <input name="evidence" placeholder="Filter by evidence filename" value="{{ filter_evidence }}">
+        <select name="status" style="flex: 0.5;">
+            <option value="">All Status</option>
+            <option value="success" {% if filter_status == 'success' %}selected{% endif %}>Success</option>
+            <option value="failure" {% if filter_status == 'failure' %}selected{% endif %}>Failure</option>
+            <option value="warning" {% if filter_status == 'warning' %}selected{% endif %}>Warning</option>
+        </select>
         <button type="submit">Filter</button>
         <a href="/logs"><button type="button" class="btn-secondary">Clear</button></a>
     </form>
 
-    <p class="subtitle">{{ logs|length }} record(s) found</p>
+    <p class="subtitle">{{ total_count }} record(s) found</p>
 
     {% if logs %}
-        {% for log in logs %}
-        <div class="log-entry">{{ log }}</div>
-        {% endfor %}
+        <div class="table-container">
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                        <th>Status</th>
+                        <th>Evidence</th>
+                        <th>Source IP</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr class="status-{{ log.status }}">
+                        <td><small>{{ log.timestamp }}</small></td>
+                        <td><strong>{{ log.username }}</strong></td>
+                        <td>{{ log.role }}</td>
+                        <td><code>{{ log.action }}</code></td>
+                        <td><span class="status-badge status-{{ log.status }}">{{ log.status }}</span></td>
+                        <td>
+                            {% if log.evidence_filename %}
+                            <small>{{ log.evidence_filename }}</small>
+                            {% else %}
+                            <em>—</em>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ log.ip }}</small></td>
+                        <td><small>{{ log.details }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% else %}
-        <div class="alert alert-error">No log entries match the current filter.</div>
+        <div class="alert alert-error">No audit log entries match the current filter.</div>
     {% endif %}
 
 </div>

@@ -6,10 +6,11 @@ import shutil
 import bcrypt
 import base64
 import binascii
+import csv
 from datetime import datetime
 from dotenv import load_dotenv
 from functools import wraps
-from io import BytesIO
+from io import BytesIO, StringIO
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 load_dotenv()
@@ -48,6 +49,12 @@ ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "bmp",
                       "pdf", "doc", "docx", "txt"}
 
 
+def get_db_connection():
+    conn = sqlite3.connect(DB, timeout=30)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    return conn
+
+
 # -------------------------------
 # Helpers
 # -------------------------------
@@ -70,7 +77,7 @@ def verify_and_migrate_password(username, entered_password, stored_password):
     # Legacy plaintext support: allow login once, then upgrade to bcrypt.
     if entered_password == stored_password:
         upgraded_hash = bcrypt.hashpw(entered_password.encode(), bcrypt.gensalt()).decode()
-        conn = sqlite3.connect(DB)
+        conn = get_db_connection()
         c = conn.cursor()
         c.execute("UPDATE users SET password=? WHERE username=?", (upgraded_hash, username))
         conn.commit()
@@ -153,7 +160,7 @@ def role_required(permission):
                 return redirect("/")
             role = session.get("role", "")
             if permission not in ROLE_PERMISSIONS.get(role, set()):
-                write_log(session["user"], f"ACCESS DENIED {permission}")
+                write_log(session["user"], "ACCESS_DENIED", status="failure", details=f"Permission: {permission}")
                 return render_template("error.html",
                                        message="You do not have permission to access this page."), 403
             return f(*args, **kwargs)
@@ -161,13 +168,15 @@ def role_required(permission):
     return decorator
 
 
-# -------------------------------
 # Database Initialization
 # -------------------------------
 
 def init_db():
-    conn = sqlite3.connect(DB)
+    conn = get_db_connection()
     c = conn.cursor()
+
+    # Improves concurrent read/write behavior for SQLite.
+    c.execute("PRAGMA journal_mode=WAL")
 
     c.execute('''
     CREATE TABLE IF NOT EXISTS users(
@@ -184,15 +193,26 @@ def init_db():
         filename TEXT,
         hash TEXT,
         uploaded_by TEXT,
-        upload_time TEXT
+        upload_time TEXT,
+        encrypted_filename TEXT,
+        encryption_algo TEXT
     )
     ''')
 
-    evidence_columns = {row[1] for row in c.execute("PRAGMA table_info(evidence)").fetchall()}
-    if "encrypted_filename" not in evidence_columns:
-        c.execute("ALTER TABLE evidence ADD COLUMN encrypted_filename TEXT")
-    if "encryption_algo" not in evidence_columns:
-        c.execute("ALTER TABLE evidence ADD COLUMN encryption_algo TEXT")
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS audit_logs(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        evidence_id INTEGER,
+        username TEXT,
+        user_role TEXT,
+        action TEXT,
+        status TEXT,
+        timestamp TEXT,
+        source_ip TEXT,
+        details TEXT,
+        FOREIGN KEY(evidence_id) REFERENCES evidence(id)
+    )
+    ''')
 
     # Seed a default admin if none exists
     c.execute("SELECT COUNT(*) FROM users WHERE role='admin'")
@@ -209,7 +229,42 @@ def init_db():
 # Audit Logging
 # -------------------------------
 
-def write_log(user, action):
+def get_remote_ip():
+    """Extract client IP from request headers or fallback to connection IP."""
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def write_log(username, action, evidence_id=None, status="success", details=""):
+    """
+    Structured chain-of-custody logging to database.
+    - username: who performed the action
+    - action: what was done (UPLOAD, DOWNLOAD, VERIFY, LOGIN, etc.)
+    - evidence_id: optional link to evidence record
+    - status: success/failure/warning
+    - details: optional extra context
+    """
+    role = session.get("role", "unknown") if "user" in session else "unknown"
+    source_ip = get_remote_ip()
+    timestamp = str(datetime.now())
+
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO audit_logs(username, user_role, action, status, timestamp, source_ip, evidence_id, details)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+        """, (username, role, action, status, timestamp, source_ip, evidence_id, details))
+        conn.commit()
+        conn.close()
+    except sqlite3.OperationalError:
+        # Avoid crashing primary action if logging fails under transient lock.
+        write_log_file(username, f"{action} status={status} details={details}")
+
+
+# Legacy plaintext log support (still write to file for backwards compatibility)
+def write_log_file(user, action):
     with open(LOG_FILE, "a") as f:
         f.write(f"[{datetime.now()}] USER:{user} ACTION:{action}\n")
 
@@ -256,7 +311,7 @@ def login():
         if not username or not password:
             error = "Please enter both username and password."
         else:
-            conn = sqlite3.connect(DB)
+            conn = get_db_connection()
             c = conn.cursor()
             c.execute("SELECT password, role FROM users WHERE username=?", (username,))
             result = c.fetchone()
@@ -265,11 +320,11 @@ def login():
             if result and verify_and_migrate_password(username, password, result[0]):
                 session["user"] = username
                 session["role"] = result[1]
-                write_log(username, "LOGIN")
+                write_log(username, "LOGIN", status="success")
                 return redirect("/dashboard")
             else:
                 error = "Invalid username or password."
-                write_log(username, "FAILED LOGIN")
+                write_log(username, "LOGIN", status="failure", details="Invalid credentials")
 
     return render_template("login.html", error=error)
 
@@ -301,16 +356,20 @@ def register():
         else:
             hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
             try:
-                conn = sqlite3.connect(DB)
+                conn = get_db_connection()
                 c = conn.cursor()
                 c.execute("INSERT INTO users(username,password,role) VALUES(?,?,?)",
                           (username, hashed.decode(), role))
                 conn.commit()
-                conn.close()
-                write_log(session["user"], f"CREATED USER {username} ROLE {role}")
+                write_log(session["user"], "CREATE_USER", status="success", details=f"Username: {username}, Role: {role}")
                 success = f"User '{username}' created successfully."
             except sqlite3.IntegrityError:
                 error = f"Username '{username}' already exists."
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     return render_template("register.html", error=error, success=success, roles=VALID_ROLES)
 
@@ -362,7 +421,7 @@ def upload():
             encrypt_file(temp_plain, temp_encrypted)
             replicate_file(temp_encrypted, stored_name=encrypted_name)
 
-            conn = sqlite3.connect(DB)
+            conn = get_db_connection()
             c = conn.cursor()
             c.execute(
                 """
@@ -371,10 +430,11 @@ def upload():
                 """,
                 (safe_name, hash_value, session["user"], str(datetime.now()), encrypted_name, "AES-256-GCM")
             )
+            ev_id = c.lastrowid
             conn.commit()
             conn.close()
 
-            write_log(session["user"], f"UPLOAD {safe_name} ENCRYPTED {encrypted_name}")
+            write_log(session["user"], "UPLOAD", evidence_id=ev_id, status="success", details=f"Filename: {safe_name}, Encrypted: {encrypted_name}")
         finally:
             if os.path.exists(temp_plain):
                 os.remove(temp_plain)
@@ -405,7 +465,7 @@ def verify():
 
         new_hash = generate_hash(path)
 
-        conn = sqlite3.connect(DB)
+        conn = get_db_connection()
         c = conn.cursor()
         c.execute("SELECT hash FROM evidence WHERE filename=?", (safe_name,))
         result = c.fetchone()
@@ -414,12 +474,12 @@ def verify():
         os.remove(path)
 
         if result and result[0] == new_hash:
-            write_log(session["user"], f"VERIFY {safe_name} PASSED")
+            write_log(session["user"], "VERIFY", status="success", details=f"Filename: {safe_name}, Result: PASSED")
             return render_template("verify.html",
                                    result="verified",
                                    message="Integrity Verified — No Tampering Detected.")
         else:
-            write_log(session["user"], f"VERIFY {safe_name} TAMPER DETECTED")
+            write_log(session["user"], "VERIFY", status="warning", details=f"Filename: {safe_name}, Result: TAMPER_DETECTED")
             return render_template("verify.html",
                                    result="tampered",
                                    message="Tampering Detected — File hash does not match stored record.")
@@ -434,7 +494,7 @@ def verify():
 @app.route("/evidence")
 @role_required("evidence")
 def evidence():
-    conn = sqlite3.connect(DB)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("""
         SELECT id, filename, uploaded_by, upload_time, encryption_algo 
@@ -464,14 +524,14 @@ def evidence():
 @app.route("/download/<int:evidence_id>")
 @role_required("download")
 def download(evidence_id):
-    conn = sqlite3.connect(DB)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT filename, encrypted_filename FROM evidence WHERE id=?", (evidence_id,))
     result = c.fetchone()
     conn.close()
 
     if not result:
-        write_log(session["user"], f"DOWNLOAD FAILED evidence_id={evidence_id} NOT_FOUND")
+        write_log(session["user"], "DOWNLOAD", evidence_id=evidence_id, status="failure", details="Evidence not found")
         return render_template("error.html", message="Evidence not found."), 404
 
     original_filename, encrypted_filename = result
@@ -485,17 +545,17 @@ def download(evidence_id):
             break
 
     if not encrypted_path:
-        write_log(session["user"], f"DOWNLOAD FAILED {original_filename} NO_ENCRYPTED_COPY")
+        write_log(session["user"], "DOWNLOAD", evidence_id=evidence_id, status="failure", details="Encrypted copy not found in nodes")
         return render_template("error.html", message="Encrypted evidence file not found in storage."), 404
 
     # Decrypt
     plaintext = decrypt_file(encrypted_path)
     if plaintext is None:
-        write_log(session["user"], f"DOWNLOAD FAILED {original_filename} DECRYPTION_ERROR")
+        write_log(session["user"], "DOWNLOAD", evidence_id=evidence_id, status="failure", details="Decryption failed")
         return render_template("error.html", message="Failed to decrypt evidence file."), 500
 
     # Log successful download
-    write_log(session["user"], f"DOWNLOAD {original_filename} SUCCESS")
+    write_log(session["user"], "DOWNLOAD", evidence_id=evidence_id, status="success", details=f"Filename: {original_filename}")
 
     # Return file as response for browser download
     return send_file(
@@ -515,21 +575,137 @@ def download(evidence_id):
 def logs():
     filter_user   = request.args.get("user", "").strip()
     filter_action = request.args.get("action", "").strip().upper()
+    filter_evidence = request.args.get("evidence", "").strip()
+    filter_status = request.args.get("status", "").strip()
 
-    with open(LOG_FILE, "r") as f:
-        data = f.readlines()
+    conn = get_db_connection()
+    c = conn.cursor()
 
-    # Filter to lines that are actual log entries (skip any stray HTML)
-    data = [line for line in data if line.startswith("[")]
+    query = """
+        SELECT al.id, al.username, al.user_role, al.action, al.status, 
+               al.timestamp, al.source_ip, al.evidence_id, e.filename, al.details
+        FROM audit_logs al
+        LEFT JOIN evidence e ON al.evidence_id = e.id
+        WHERE 1=1
+    """
+    params = []
 
     if filter_user:
-        data = [l for l in data if f"USER:{filter_user}" in l]
-    if filter_action:
-        data = [l for l in data if f"ACTION:{filter_action}" in l]
+        query += " AND al.username LIKE ?"
+        params.append(f"%{filter_user}%")
 
-    return render_template("logs.html", logs=data,
+    if filter_action:
+        query += " AND al.action = ?"
+        params.append(filter_action)
+
+    if filter_evidence:
+        query += " AND e.filename LIKE ?"
+        params.append(f"%{filter_evidence}%")
+
+    if filter_status:
+        query += " AND al.status = ?"
+        params.append(filter_status)
+
+    query += " ORDER BY al.timestamp DESC"
+
+    c.execute(query, params)
+    rows = c.fetchall()
+    conn.close()
+
+    logs_data = []
+    for row in rows:
+        logs_data.append({
+            "id": row[0],
+            "username": row[1],
+            "role": row[2],
+            "action": row[3],
+            "status": row[4],
+            "timestamp": row[5],
+            "ip": row[6],
+            "evidence_id": row[7],
+            "evidence_filename": row[8],
+            "details": row[9]
+        })
+
+    return render_template("logs.html", logs=logs_data,
                            filter_user=filter_user,
-                           filter_action=filter_action)
+                           filter_action=filter_action,
+                           filter_evidence=filter_evidence,
+                           filter_status=filter_status,
+                           total_count=len(logs_data))
+
+
+# -------------------------------
+# EXPORT AUDIT LOGS AS CSV
+# -------------------------------
+
+@app.route("/logs/export")
+@role_required("logs")
+def export_logs():
+    import csv
+
+    filter_user   = request.args.get("user", "").strip()
+    filter_action = request.args.get("action", "").strip().upper()
+    filter_evidence = request.args.get("evidence", "").strip()
+    filter_status = request.args.get("status", "").strip()
+
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    query = """
+        SELECT al.username, al.user_role, al.action, al.status, 
+               al.timestamp, al.source_ip, al.evidence_id, e.filename, al.details
+        FROM audit_logs al
+        LEFT JOIN evidence e ON al.evidence_id = e.id
+        WHERE 1=1
+    """
+    params = []
+
+    if filter_user:
+        query += " AND al.username LIKE ?"
+        params.append(f"%{filter_user}%")
+
+    if filter_action:
+        query += " AND al.action = ?"
+        params.append(filter_action)
+
+    if filter_evidence:
+        query += " AND e.filename LIKE ?"
+        params.append(f"%{filter_evidence}%")
+
+    if filter_status:
+        query += " AND al.status = ?"
+        params.append(filter_status)
+
+    query += " ORDER BY al.timestamp DESC"
+
+    c.execute(query, params)
+    rows = c.fetchall()
+    conn.close()
+
+    # Create CSV in memory
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow([
+        "Username", "Role", "Action", "Status", "Timestamp", "Source IP", "Evidence ID", "Evidence Name", "Details"
+    ])
+    
+    for row in rows:
+        writer.writerow(row)
+
+    # Convert to bytes for download
+    csv_bytes = output.getvalue().encode('utf-8')
+
+    write_log(session["user"], "EXPORT_LOGS", status="success", 
+              details=f"Exported {len(rows)} records")
+
+    return send_file(
+        BytesIO(csv_bytes),
+        as_attachment=True,
+        download_name=f"audit_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mimetype="text/csv"
+    )
 
 
 # -------------------------------
@@ -539,7 +715,7 @@ def logs():
 @app.route("/logout")
 @login_required
 def logout():
-    write_log(session["user"], "LOGOUT")
+    write_log(session["user"], "LOGOUT", status="success")
     session.clear()
     return redirect("/")
 
