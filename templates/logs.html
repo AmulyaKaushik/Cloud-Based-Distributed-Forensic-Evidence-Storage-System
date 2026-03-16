@@ -4,24 +4,31 @@
     <title>Audit Logs</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
 
 <div class="dashboard">
 
-<h2>Audit Logs</h2>
+    <div class="dashboard-header">
+        <h2>Chain-of-Custody Audit Logs</h2>
+        <a href="/dashboard"><button class="btn-secondary">Back to Dashboard</button></a>
+    </div>
 
-{% for log in logs %}
-<div class="card">
-{{ log }}
-</div>
-{% endfor %}
+    <form method="GET" class="filter-bar">
+        <input name="user" placeholder="Filter by user" value="{{ filter_user }}">
+        <input name="action" placeholder="Filter by action (e.g. UPLOAD)" value="{{ filter_action }}">
+        <button type="submit">Filter</button>
+        <a href="/logs"><button type="button" class="btn-secondary">Clear</button></a>
+    </form>
 
-<div style="margin-top:20px;">
-<a href="/dashboard">
-<button>Return to Main Menu</button>
-</a>
-</div>
+    <p class="subtitle">{{ logs|length }} record(s) found</p>
+
+    {% if logs %}
+        {% for log in logs %}
+        <div class="log-entry">{{ log }}</div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-error">No log entries match the current filter.</div>
+    {% endif %}
 
 </div>
 

@@ -1,17 +1,31 @@
-<link rel="stylesheet" href="/static/style.css">
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login — Forensic Evidence System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
 
 <div class="container">
 
-<h2>Forensic Evidence Storage</h2>
+    <h2>Forensic Evidence Storage</h2>
+    <p class="subtitle">Authorised personnel only</p>
 
-<form method="POST">
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
 
-<input name="username" placeholder="Username">
+    <form method="POST">
+        <label>Username</label>
+        <input name="username" placeholder="Username" required>
 
-<input name="password" type="password" placeholder="Password">
+        <label>Password</label>
+        <input name="password" type="password" placeholder="Password" required>
 
-<button>Login</button>
-
-</form>
+        <button type="submit">Login</button>
+    </form>
 
 </div>
+
+</body>
+</html>

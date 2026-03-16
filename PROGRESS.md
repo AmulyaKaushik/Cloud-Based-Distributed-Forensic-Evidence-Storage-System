@@ -29,13 +29,14 @@ Last Updated: 2026-03-16
 ## 2. Requirement-by-Requirement Status
 
 ## Functional Requirements
-- [ ] User Registration and Login for all required roles
+- [x] User Registration and Login for all required roles
 - [x] Evidence Upload
 - [x] Automatic SHA-256 generation
 - [ ] AES-256 encryption before storage
 - [x] Replication across 3 nodes (local simulation)
 - [x] Integrity verification by hash comparison
-- [ ] Complete chain-of-custody actions (view/download/update)
+- [x] Full role model enforcement (Admin, Police Officer, Forensic Analyst, Court Authority)
+- [~] Complete chain-of-custody actions (view/download/update — view and verify logged, download not yet)
 
 ## Non-Functional Requirements
 - [~] High Availability (basic local replication only)
@@ -52,15 +53,15 @@ Legend:
 
 ## 3. Remaining Work Plan
 
-## Phase 1: Security and Access Control (Priority: High)
-1. Add secure password hashing (bcrypt/argon2) and migrate existing plain-text passwords.
-2. Add registration or admin user-management route for required roles.
-3. Enforce role-based authorization per route/action:
+## Phase 1: Security and Access Control ✅ COMPLETE
+1. ~~Add secure password hashing (bcrypt/argon2) and migrate existing plain-text passwords.~~ Done — bcrypt used for all passwords.
+2. ~~Add registration or admin user-management route for required roles.~~ Done — `/register` route, admin-only.
+3. ~~Enforce role-based authorization per route/action:~~ Done — `@role_required` decorator on all routes.
    - Admin: full control
-   - Police Officer: upload/view own investigations
-   - Forensic Analyst: verify and analyze
-   - Court Authority: read-only access to approved evidence
-4. Add secure session settings and environment-based secret key.
+   - Police Officer: upload/verify/logs
+   - Forensic Analyst: verify/logs
+   - Court Authority: logs only
+4. ~~Add secure session settings and environment-based secret key.~~ Done — `SECRET_KEY` via `.env`.
 
 Deliverable: secure login, strict role permissions, and compliant role model.
 
@@ -111,8 +112,8 @@ Deliverable: immutable external proof layer.
 Sprint Goal: complete security baseline and custody compliance
 
 Tasks:
-- [ ] Implement password hashing and role policy middleware.
-- [ ] Add user/role management interface.
+- [x] Implement password hashing and role policy middleware.
+- [x] Add user/role management interface.
 - [ ] Add AES-256 encryption module for upload pipeline.
 - [ ] Extend audit logging to include view/download/update.
 - [ ] Add tests for login, upload, verify, and access-control failures.
