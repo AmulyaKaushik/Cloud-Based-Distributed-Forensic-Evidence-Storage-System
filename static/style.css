@@ -177,3 +177,56 @@ a.card:hover {
     word-break: break-all;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+
+/* ===== Evidence Table ===== */
+.table-container {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+
+.evidence-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.evidence-table thead {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.evidence-table th {
+    padding: 12px 14px;
+    text-align: left;
+    font-weight: bold;
+    color: #333;
+}
+
+.evidence-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.evidence-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.encryption-badge {
+    display: inline-block;
+    background: #e2e8f0;
+    color: #1e40af;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    width: auto;
+    margin-top: 0;
+}

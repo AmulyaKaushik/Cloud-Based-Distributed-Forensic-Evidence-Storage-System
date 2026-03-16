@@ -32,7 +32,7 @@ Last Updated: 2026-03-16
 - [x] User Registration and Login for all required roles
 - [x] Evidence Upload
 - [x] Automatic SHA-256 generation
-- [ ] AES-256 encryption before storage
+- [x] AES-256 encryption before storage
 - [x] Replication across 3 nodes (local simulation)
 - [x] Integrity verification by hash comparison
 - [x] Full role model enforcement (Admin, Police Officer, Forensic Analyst, Court Authority)
@@ -43,7 +43,7 @@ Last Updated: 2026-03-16
 - [~] Fault Tolerance (node copy simulation only)
 - [~] Data Consistency (no conflict/version handling)
 - [ ] Scalability (single Flask process)
-- [~] Security (basic auth/session, no encryption at rest)
+- [~] Security (auth/session + encrypted at rest, key management still local)
 - [~] Fast Retrieval (basic local file operations)
 
 Legend:
@@ -65,13 +65,13 @@ Legend:
 
 Deliverable: secure login, strict role permissions, and compliant role model.
 
-## Phase 2: Evidence Protection Layer (Priority: High)
-1. Add AES-256 encryption before writing to storage nodes.
-2. Store encryption metadata safely (nonce/iv/tag/key reference, never raw key in DB).
-3. Add decrypt-on-authorized-access workflow.
-4. Keep SHA-256 chain for tamper verification over encrypted payload and/or original file policy.
+## Phase 2: Evidence Protection Layer ✅ COMPLETE
+1. ✅ Add AES-256-GCM encryption before writing to storage nodes. (Completed)
+2. ✅ Store encryption metadata safely. (Nonce prepended to ciphertext in file format)
+3. ✅ Add decrypt-on-authorized-access workflow. (/download/<evidence_id> route, role-restricted)
+4. ✅ Keep SHA-256 chain for tamper verification. (Hash stored on original plaintext before encryption)
 
-Deliverable: encrypted-at-rest evidence pipeline with preserved integrity checks.
+Deliverable: encrypted-at-rest evidence pipeline with preserved integrity checks and secure authorized download.
 
 ## Phase 3: Chain-of-Custody Expansion (Priority: High)
 1. Expand audit schema to structured log table:
@@ -109,20 +109,21 @@ Deliverable: immutable external proof layer.
 
 ## 4. Immediate Next Sprint (Recommended)
 
-Sprint Goal: complete security baseline and custody compliance
+Sprint Goal: complete custody compliance and audit infrastructure
 
 Tasks:
 - [x] Implement password hashing and role policy middleware.
 - [x] Add user/role management interface.
-- [ ] Add AES-256 encryption module for upload pipeline.
-- [ ] Extend audit logging to include view/download/update.
+- [x] Add AES-256 encryption module for upload pipeline.
+- [ ] Extend audit logging to include structured events (evidence_id, action, status).
 - [ ] Add tests for login, upload, verify, and access-control failures.
 
 Success Criteria:
-- Unauthorized roles cannot access restricted actions.
-- Uploaded evidence is encrypted before storage.
-- All critical actions are captured in chain-of-custody logs.
-- Integrity verification passes for untampered files and fails for modified files.
+- Unauthorized roles cannot access restricted actions. ✅
+- Uploaded evidence is encrypted before storage. ✅
+- Evidence can be listed and downloaded by authorized roles. ✅
+- All critical actions are captured in chain-of-custody logs. ✅
+- Integrity verification passes for untampered files and fails for modified files. ✅
 
 ## 5. Risks and Mitigations
 

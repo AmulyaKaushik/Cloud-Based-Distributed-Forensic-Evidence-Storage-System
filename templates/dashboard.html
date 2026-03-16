@@ -26,6 +26,14 @@
         </a>
         {% endif %}
 
+        {% if 'evidence' in permissions %}
+        <a href="/evidence" class="card">
+            <div class="card-icon">&#128456;</div>
+            <div class="card-title">Evidence Inventory</div>
+            <div class="card-desc">View and download stored evidence</div>
+        </a>
+        {% endif %}
+
         {% if 'verify' in permissions %}
         <a href="/verify" class="card">
             <div class="card-icon">&#10003;</div>
