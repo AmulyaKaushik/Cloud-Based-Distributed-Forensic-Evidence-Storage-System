@@ -1,33 +1,56 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-<title>Dashboard</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
 
 <div class="dashboard">
 
-<h2>Welcome {{ user }}</h2>
-<p>Role: {{ role }}</p>
+    <div class="dashboard-header">
+        <div>
+            <h2>Welcome, {{ user }}</h2>
+            <span class="role-badge role-{{ role }}">{{ role.replace('_', ' ').title() }}</span>
+        </div>
+        <a href="/logout"><button class="btn-secondary">Logout</button></a>
+    </div>
 
-<div class="card">
-<a href="/upload">Upload Evidence</a>
-</div>
+    <div class="card-grid">
 
-<div class="card">
-<a href="/verify">Verify Evidence</a>
-</div>
+        {% if 'upload' in permissions %}
+        <a href="/upload" class="card">
+            <div class="card-icon">&#128228;</div>
+            <div class="card-title">Upload Evidence</div>
+            <div class="card-desc">Submit new digital evidence files</div>
+        </a>
+        {% endif %}
 
-<div class="card">
-<a href="/logs">View Audit Logs</a>
-</div>
+        {% if 'verify' in permissions %}
+        <a href="/verify" class="card">
+            <div class="card-icon">&#10003;</div>
+            <div class="card-title">Verify Integrity</div>
+            <div class="card-desc">Check a file against its stored hash</div>
+        </a>
+        {% endif %}
 
-<div class="card">
-<a href="/logout">Logout</a>
-</div>
+        {% if 'logs' in permissions %}
+        <a href="/logs" class="card">
+            <div class="card-icon">&#128203;</div>
+            <div class="card-title">Audit Logs</div>
+            <div class="card-desc">View the chain-of-custody trail</div>
+        </a>
+        {% endif %}
+
+        {% if 'manage_users' in permissions %}
+        <a href="/register" class="card">
+            <div class="card-icon">&#128100;</div>
+            <div class="card-title">Manage Users</div>
+            <div class="card-desc">Create accounts for authorised personnel</div>
+        </a>
+        {% endif %}
+
+    </div>
 
 </div>
 
