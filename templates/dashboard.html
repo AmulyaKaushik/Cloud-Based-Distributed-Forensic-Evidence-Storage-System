@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="dashboard">
+
+<h2>Welcome {{ user }}</h2>
+<p>Role: {{ role }}</p>
+
+<div class="card">
+<a href="/upload">Upload Evidence</a>
+</div>
+
+<div class="card">
+<a href="/verify">Verify Evidence</a>
+</div>
+
+<div class="card">
+<a href="/logs">View Audit Logs</a>
+</div>
+
+<div class="card">
+<a href="/logout">Logout</a>
+</div>
+
+</div>
+
+</body>
+</html>

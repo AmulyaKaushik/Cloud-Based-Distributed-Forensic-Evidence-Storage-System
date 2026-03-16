@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Upload Evidence</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Upload Evidence</h2>
+
+<form method="POST" enctype="multipart/form-data">
+
+<input type="file" name="file" required>
+
+<button type="submit">Upload Evidence</button>
+
+</form>
+
+<br>
+
+<a href="/dashboard">
+<button>Return to Main Menu</button>
+</a>
+
+</div>
+
+</body>
+
+</html>
