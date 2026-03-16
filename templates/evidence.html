@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Evidence Inventory</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <div class="dashboard-header">
+        <h2>Evidence Inventory</h2>
+        <a href="/dashboard"><button class="btn-secondary">Back to Dashboard</button></a>
+    </div>
+
+    {% if evidence %}
+        <p class="subtitle">{{ evidence|length }} evidence record(s) on file</p>
+        <div class="table-container">
+            <table class="evidence-table">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Uploaded By</th>
+                        <th>Upload Time</th>
+                        <th>Encryption</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in evidence %}
+                    <tr>
+                        <td><strong>{{ item.filename }}</strong></td>
+                        <td>{{ item.uploaded_by }}</td>
+                        <td><small>{{ item.upload_time }}</small></td>
+                        <td><span class="encryption-badge">{{ item.encryption_algo }}</span></td>
+                        <td>
+                            <a href="/download/{{ item.id }}"><button class="btn-small">Download</button></a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-error">No evidence on file yet.</div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>
