@@ -18,15 +18,21 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change_this_before_production")
 
-DB = "database.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RUNTIME_DATA_DIR = os.environ.get(
+    "RUNTIME_DATA_DIR",
+    "/tmp/forensic2" if os.environ.get("VERCEL") else BASE_DIR
+)
+
+DB = os.path.join(RUNTIME_DATA_DIR, "database.db")
 
 NODES = [
-    "storage_nodes/node1/",
-    "storage_nodes/node2/",
-    "storage_nodes/node3/"
+    os.path.join(RUNTIME_DATA_DIR, "storage_nodes", "node1"),
+    os.path.join(RUNTIME_DATA_DIR, "storage_nodes", "node2"),
+    os.path.join(RUNTIME_DATA_DIR, "storage_nodes", "node3")
 ]
 
-LOG_FILE = "audit_logs/audit.log"
+LOG_FILE = os.path.join(RUNTIME_DATA_DIR, "audit_logs", "audit.log")
 
 # Role hierarchy: what each role is allowed to do
 # admin            → all actions
@@ -47,6 +53,13 @@ ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "bmp",
                       "mp4", "avi", "mov", "mkv",
                       "mp3", "wav",
                       "pdf", "doc", "docx", "txt"}
+
+
+def ensure_runtime_dirs():
+    os.makedirs(RUNTIME_DATA_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+    for node in NODES:
+        os.makedirs(node, exist_ok=True)
 
 
 def get_db_connection():
@@ -223,6 +236,10 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
+ensure_runtime_dirs()
+init_db()
 
 
 # -------------------------------
@@ -734,5 +751,4 @@ def not_found(e):
 
 
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True)
