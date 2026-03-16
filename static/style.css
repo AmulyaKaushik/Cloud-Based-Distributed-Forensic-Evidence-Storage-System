@@ -230,3 +230,72 @@ a.card:hover {
     width: auto;
     margin-top: 0;
 }
+
+/* ===== Logs Table ===== */
+.logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.logs-table thead {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.logs-table th {
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: bold;
+    color: #333;
+}
+
+.logs-table td {
+    padding: 8px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.logs-table tbody tr {
+    transition: background 0.1s;
+}
+
+.logs-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.logs-table code {
+    background: #f1f3f5;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.logs-table small {
+    color: #666;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.status-success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-failure {
+    background: #fde8e8;
+    color: #b91c1c;
+}
+
+.status-warning {
+    background: #fef3c7;
+    color: #92400e;
+}

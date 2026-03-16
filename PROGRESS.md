@@ -36,7 +36,7 @@ Last Updated: 2026-03-16
 - [x] Replication across 3 nodes (local simulation)
 - [x] Integrity verification by hash comparison
 - [x] Full role model enforcement (Admin, Police Officer, Forensic Analyst, Court Authority)
-- [~] Complete chain-of-custody actions (view/download/update — view and verify logged, download not yet)
+- [x] Complete chain-of-custody actions (upload, verify, download, view all logged)
 
 ## Non-Functional Requirements
 - [~] High Availability (basic local replication only)
@@ -73,14 +73,14 @@ Deliverable: secure login, strict role permissions, and compliant role model.
 
 Deliverable: encrypted-at-rest evidence pipeline with preserved integrity checks and secure authorized download.
 
-## Phase 3: Chain-of-Custody Expansion (Priority: High)
-1. Expand audit schema to structured log table:
-   - evidence_id, user, role, action, timestamp, source_ip, status
-2. Log view/download/update/verify events per evidence item.
-3. Add filterable logs page by date, user, evidence, and action.
-4. Add export option (CSV/PDF) for legal reporting.
+## Phase 3: Chain-of-Custody Expansion ✅ COMPLETE
+1. ✅ Expand audit schema to structured log table with all required fields.
+   - evidence_id, user, role, action, timestamp, source_ip, status, details
+2. ✅ Log view/download/update/verify events per evidence item.
+3. ✅ Add filterable logs page by date, user, evidence, and action.
+4. ✅ Add export option (CSV) for legal reporting.
 
-Deliverable: complete, queryable chain-of-custody trail.
+Deliverable: complete, queryable chain-of-custody trail with full forensic-grade audit capabilities.
 
 ## Phase 4: Storage and Cloud Upgrade (Priority: Medium)
 1. Replace local node folders with pluggable storage adapter.
@@ -109,21 +109,25 @@ Deliverable: immutable external proof layer.
 
 ## 4. Immediate Next Sprint (Recommended)
 
-Sprint Goal: complete custody compliance and audit infrastructure
+Sprint Goal: cloud storage integration and production hardening
 
 Tasks:
 - [x] Implement password hashing and role policy middleware.
 - [x] Add user/role management interface.
 - [x] Add AES-256 encryption module for upload pipeline.
-- [ ] Extend audit logging to include structured events (evidence_id, action, status).
+- [x] Extend audit logging to include structured events (evidence_id, action, status).
 - [ ] Add tests for login, upload, verify, and access-control failures.
+- [ ] Replace local storage with AWS S3 or compatible backend.
+- [ ] Migrate database from SQLite to PostgreSQL.
 
-Success Criteria:
+Success Criteria (Phase 3 ✅ Complete):
 - Unauthorized roles cannot access restricted actions. ✅
 - Uploaded evidence is encrypted before storage. ✅
 - Evidence can be listed and downloaded by authorized roles. ✅
 - All critical actions are captured in chain-of-custody logs. ✅
 - Integrity verification passes for untampered files and fails for modified files. ✅
+- Logs are queryable by user, action, status, and evidence. ✅
+- CSV export available for legal reporting. ✅
 
 ## 5. Risks and Mitigations
 
