@@ -51,7 +51,7 @@ This forensic evidence management system is designed to handle the secure storag
 ```
 forensic2/
 ├── app.py                    # Main Flask application
-├── database.db              # SQLite database (created at runtime)
+├── storage_adapter.py       # Pluggable storage backend adapters
 ├── README.md                # This file
 ├── templates/               # HTML templates
 │   ├── dashboard.html       # Main dashboard
@@ -74,16 +74,21 @@ forensic2/
 ### Requirements
 - Python 3.x
 - Flask
+- PostgreSQL
 
 ### Installation Steps
 
 1. **Install Dependencies**
    ```
-   pip install flask
+   pip install -r requirements.txt
    ```
 
 2. **Initialize Database**
-   The database is automatically initialized on first run.
+   Set PostgreSQL connection string:
+   ```
+   set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/forensic2
+   ```
+   Database tables are automatically initialized on first run.
 
 3. **Create Storage Directories**
    ```
@@ -103,14 +108,16 @@ forensic2/
 
 ## Default Credentials
 
-The database needs to be seeded with users. You can add users directly to the SQLite database or modify `app.py` to include initial user creation on startup.
+If no admin exists, the app auto-seeds this account on startup:
+- Username: admin
+- Password: admin123
 
 ## Database Schema
 
 ### Users Table
 ```sql
 CREATE TABLE users(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+   id SERIAL PRIMARY KEY,
     username TEXT,
     password TEXT,
     role TEXT
@@ -120,11 +127,13 @@ CREATE TABLE users(
 ### Evidence Table
 ```sql
 CREATE TABLE evidence(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+   id SERIAL PRIMARY KEY,
     filename TEXT,
     hash TEXT,
     uploaded_by TEXT,
-    upload_time TEXT
+   upload_time TEXT,
+   encrypted_filename TEXT,
+   encryption_algo TEXT
 )
 ```
 

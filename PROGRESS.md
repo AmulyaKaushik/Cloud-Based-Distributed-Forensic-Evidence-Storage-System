@@ -82,24 +82,23 @@ Deliverable: encrypted-at-rest evidence pipeline with preserved integrity checks
 
 Deliverable: complete, queryable chain-of-custody trail with full forensic-grade audit capabilities.
 
-## Phase 4: Storage and Cloud Upgrade (Priority: Medium)
-1. Replace local node folders with pluggable storage adapter.
-2. Integrate one target backend:
-   - AWS S3 (recommended for demo)
-   - or HDFS
-   - or GCP storage
-3. Add replication policy and health checks.
-4. Add retry logic and failure handling.
+## Phase 4: Storage and Cloud Upgrade (Priority: Medium) ✅ IN PROGRESS
+1. ✅ Create pluggable storage adapter interface with local and S3 backends
+2. ✅ Implement LocalStorageAdapter for multi-node replication
+3. ✅ Refactor upload/download to use storage_adapter instead of direct replicate_file()
+4. ✅ Add health check endpoint for storage backend monitoring
+5. ⏳ Next: S3 adapter testing with real AWS credentials
+6. ⏳ Next: Add replication policy and node health visibility layer
 
-Deliverable: cloud-backed distributed storage with node health visibility.
+Deliverable (in progress): pluggable storage abstraction enabling cloud migration without app refactoring.
 
-## Phase 5: Database and API Hardening (Priority: Medium)
-1. Migrate from SQLite to PostgreSQL (or MongoDB) for production readiness.
-2. Add evidence metadata indexing for faster retrieval.
-3. Introduce API layer versioning and validation.
-4. Add unit/integration tests for auth, upload, verify, and logs.
+## Phase 5: Database and API Hardening (Priority: Medium) ✅ IN PROGRESS
+1. ✅ Migrate from SQLite to PostgreSQL for production readiness.
+2. ✅ Add evidence metadata indexing for faster retrieval.
+3. ✅ Introduce API layer versioning and validation.
+4. ✅ Add unit/integration tests for auth, upload, verify, and logs.
 
-Deliverable: reliable backend with tested core workflows.
+Deliverable: hardened backend with PostgreSQL, indexed queries, validated v1 APIs, and expanded automated test coverage.
 
 ## Phase 6: Optional Blockchain Layer (Advanced)
 1. Store hash fingerprints of evidence/audit events on Hyperledger Fabric.
@@ -116,9 +115,11 @@ Tasks:
 - [x] Add user/role management interface.
 - [x] Add AES-256 encryption module for upload pipeline.
 - [x] Extend audit logging to include structured events (evidence_id, action, status).
-- [ ] Add tests for login, upload, verify, and access-control failures.
+- [x] Add tests for login, upload, verify, and access-control failures.
 - [ ] Replace local storage with AWS S3 or compatible backend.
-- [ ] Migrate database from SQLite to PostgreSQL.
+- [x] Migrate database from SQLite to PostgreSQL.
+
+Current next step: complete cloud storage backend rollout (S3) and parity tests.
 
 Success Criteria (Phase 3 ✅ Complete):
 - Unauthorized roles cannot access restricted actions. ✅
