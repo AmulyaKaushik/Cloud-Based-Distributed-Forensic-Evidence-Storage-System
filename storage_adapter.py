@@ -137,18 +137,37 @@ class LocalStorageAdapter(StorageAdapter):
                 os.remove(dest_path)
 
     def health_check(self):
-        """Check all nodes are accessible."""
+        """Check all nodes are accessible and report basic node status."""
         missing_nodes = []
+        nodes = []
         for node_dir in self.node_dirs:
-            if not os.path.isdir(node_dir):
+            accessible = os.path.isdir(node_dir)
+            file_count = 0
+            if accessible:
+                try:
+                    file_count = len(
+                        [name for name in os.listdir(node_dir) if os.path.isfile(os.path.join(node_dir, name))]
+                    )
+                except OSError:
+                    accessible = False
+
+            nodes.append({
+                "path": node_dir,
+                "accessible": accessible,
+                "file_count": file_count,
+            })
+
+            if not accessible:
                 missing_nodes.append(node_dir)
 
         if missing_nodes:
             return {
                 "healthy": False,
                 "message": f"Missing nodes: {', '.join(missing_nodes)}",
+                "backend": "local",
+                "nodes": nodes,
             }
-        return {"healthy": True, "message": "All nodes accessible"}
+        return {"healthy": True, "message": "All nodes accessible", "backend": "local", "nodes": nodes}
 
 
 class S3StorageAdapter(StorageAdapter):
@@ -210,11 +229,13 @@ class S3StorageAdapter(StorageAdapter):
         """Check S3 connectivity."""
         try:
             self.s3_client.head_bucket(Bucket=self.bucket_name)
-            return {"healthy": True, "message": f"S3 bucket '{self.bucket_name}' accessible"}
+            return {"healthy": True, "message": f"S3 bucket '{self.bucket_name}' accessible", "backend": "s3", "bucket": self.bucket_name}
         except Exception as e:
             return {
                 "healthy": False,
                 "message": f"S3 health check failed: {str(e)}",
+                "backend": "s3",
+                "bucket": self.bucket_name,
             }
 
 

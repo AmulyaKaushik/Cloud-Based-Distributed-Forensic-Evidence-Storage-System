@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, flash, send_file, jsonify
-import psycopg2
-import psycopg2.errors
+import psycopg
+import psycopg.errors
 import hashlib
 import os
 import shutil
@@ -30,6 +30,15 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is required. Configure a PostgreSQL connection string.")
+
+
+def get_database_url():
+    """Return the configured PostgreSQL URL, adding SSL for Supabase if needed."""
+    database_url = DATABASE_URL
+    if "supabase.co" in database_url and "sslmode=" not in database_url:
+        separator = "&" if "?" in database_url else "?"
+        database_url = f"{database_url}{separator}sslmode=require"
+    return database_url
 
 NODES = [
     os.path.join(RUNTIME_DATA_DIR, "storage_nodes", "node1"),
@@ -68,7 +77,17 @@ def ensure_runtime_dirs():
 
 
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    """Connect to Supabase PostgreSQL using explicit parameters."""
+    from urllib.parse import urlparse
+    url = urlparse(get_database_url())
+    return psycopg.connect(
+        host=url.hostname,
+        port=url.port or 5432,
+        dbname=url.path.lstrip('/') or 'postgres',
+        user=url.username or 'postgres',
+        password=url.password,
+        sslmode='require'
+    )
 
 
  
@@ -334,7 +353,7 @@ def write_log(username, action, evidence_id=None, status="success", details=""):
         """, (username, role, action, status, timestamp, source_ip, evidence_id, details))
         conn.commit()
         conn.close()
-    except psycopg2.Error:
+    except psycopg.Error:
         # Avoid crashing primary action if logging fails under transient lock.
         write_log_file(username, f"{action} status={status} details={details}")
 
@@ -436,7 +455,7 @@ def register():
                 conn.commit()
                 write_log(session["user"], "CREATE_USER", status="success", details=f"Username: {username}, Role: {role}")
                 success = f"User '{username}' created successfully."
-            except psycopg2.errors.UniqueViolation:
+            except psycopg.errors.UniqueViolation:
                 conn.rollback()
                 error = f"Username '{username}' already exists."
             finally:

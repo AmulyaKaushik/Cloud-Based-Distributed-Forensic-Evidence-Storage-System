@@ -74,7 +74,7 @@ forensic2/
 ### Requirements
 - Python 3.x
 - Flask
-- PostgreSQL
+- PostgreSQL, preferably hosted on Supabase
 
 ### Installation Steps
 
@@ -84,9 +84,9 @@ forensic2/
    ```
 
 2. **Initialize Database**
-   Set PostgreSQL connection string:
+   Set your Supabase PostgreSQL connection string:
    ```
-   set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/forensic2
+   set DATABASE_URL=postgresql://postgres:<PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres?sslmode=require
    ```
    Database tables are automatically initialized on first run.
 
@@ -111,6 +111,16 @@ forensic2/
 If no admin exists, the app auto-seeds this account on startup:
 - Username: admin
 - Password: admin123
+
+### Supabase setup
+
+If you are using Supabase:
+
+1. Create a new project in the Supabase dashboard.
+2. Open the database connection settings and copy the PostgreSQL connection string.
+3. Paste it into `DATABASE_URL`.
+4. Keep `sslmode=require` in the connection string if it is not already included.
+5. Run the app once so it creates the tables automatically.
 
 ## Database Schema
 
@@ -149,6 +159,49 @@ CREATE TABLE evidence(
 | `/logout` | GET | Logout user |
 
 ## How It Works
+
+### System Architecture
+
+#### Simple diagram
+
+```mermaid
+flowchart LR
+   U[You] --> A[Flask app]
+   A --> D[(Database)]
+   A --> S[(File storage)]
+   A -. future .-> B[(Blockchain)]
+```
+
+Simple meaning:
+- You use the website.
+- The Flask app saves text info in the database.
+- The Flask app saves the encrypted file in storage.
+- Blockchain is only a future idea for saving proof hashes.
+
+#### More detailed diagram
+
+```mermaid
+flowchart LR
+   U[User / Browser] --> L[Login / Upload / Verify / Logs]
+   L --> A[Flask App]
+   A --> DB[(PostgreSQL / Supabase)]
+   A --> SA[Storage Adapter]
+   SA --> N1[Local Node 1]
+   SA --> N2[Local Node 2]
+   SA --> N3[Local Node 3]
+   SA -. optional .-> S3[(AWS S3)]
+   A --> H[Health Endpoint]
+   A -. future .-> B[Blockchain Layer]
+   B -. stores only hashes .-> DB
+```
+
+More detailed meaning:
+- The user opens one of the main pages like login, upload, verify, or logs.
+- The Flask app handles the request.
+- The database stores users, evidence details, hashes, and audit logs.
+- The storage adapter sends encrypted evidence to local nodes or to S3 if enabled.
+- The health endpoint checks whether the database and storage are working.
+- A future blockchain layer would store only hash fingerprints, not the actual files.
 
 ### Evidence Upload Flow
 1. User logs in with credentials

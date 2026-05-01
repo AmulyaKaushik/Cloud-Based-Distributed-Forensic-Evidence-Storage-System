@@ -142,6 +142,9 @@ class ForensicAppTestCase(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload["version"], "v1")
         self.assertIn("health", payload)
+        self.assertIn("storage", payload["health"])
+        self.assertIn("backend", payload["health"]["storage"])
+        self.assertIn("nodes", payload["health"]["storage"])
 
     def test_api_v1_evidence_requires_auth(self):
         response = self.client.get("/api/v1/evidence")

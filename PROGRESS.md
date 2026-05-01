@@ -1,30 +1,31 @@
 # Project Progress and Remaining Work
 
 Project Title: Cloud-Based Distributed Forensic Evidence Storage System
-Last Updated: 2026-03-16
+Last Updated: 2026-04-29
 
 ## 1. Current Completion Snapshot
 
 ### Implemented So Far
 - Flask web app with core routes for login, dashboard, upload, verify, logs, logout.
 - SHA-256 hash generation for evidence integrity check.
+- AES-256-GCM encryption before storage.
 - Multi-node replication simulation to 3 local storage nodes.
-- SQLite storage for users and evidence metadata.
-- Basic chain-of-custody audit log with timestamp, user, and action.
+- PostgreSQL storage for users and evidence metadata.
+- Structured chain-of-custody audit log with timestamp, user, role, action, status, source IP, and details.
 - HTML templates and basic styling.
+- Supabase PostgreSQL connectivity and schema initialization.
+- Automated test suite for auth, upload, verify, and API v1 endpoints.
 
 ### Partially Implemented
-- Role-based access exists in schema/session, but fine-grained permissions are not enforced.
-- Distributed storage is simulated locally, not cloud-hosted.
+- Distributed storage is still simulated locally; cloud object storage is not live yet.
+- Storage adapter exists, but S3 backend validation with real credentials is still pending.
+- Replication/node-health visibility is basic and not yet a full monitoring layer.
+- Optional blockchain integrity anchoring is not implemented.
 
 ### Not Implemented Yet
-- User registration workflow.
-- AES-256 encryption before storage.
-- Full role model enforcement (Admin, Police Officer, Forensic Analyst, Court Authority).
-- Access-level chain-of-custody events (view/download/update) per file.
-- Production-grade database (PostgreSQL/MongoDB).
-- Real cloud storage integration (AWS S3/GCP/HDFS).
 - Optional blockchain integrity layer.
+- Production deployment guide with final cloud hosting steps.
+- Stronger operational monitoring for storage/node health.
 
 ## 2. Requirement-by-Requirement Status
 
@@ -82,7 +83,7 @@ Deliverable: encrypted-at-rest evidence pipeline with preserved integrity checks
 
 Deliverable: complete, queryable chain-of-custody trail with full forensic-grade audit capabilities.
 
-## Phase 4: Storage and Cloud Upgrade (Priority: Medium) ✅ IN PROGRESS
+## Phase 4: Storage and Cloud Upgrade (Priority: Medium) ✅ PARTIALLY COMPLETE
 1. ✅ Create pluggable storage adapter interface with local and S3 backends
 2. ✅ Implement LocalStorageAdapter for multi-node replication
 3. ✅ Refactor upload/download to use storage_adapter instead of direct replicate_file()
@@ -92,7 +93,7 @@ Deliverable: complete, queryable chain-of-custody trail with full forensic-grade
 
 Deliverable (in progress): pluggable storage abstraction enabling cloud migration without app refactoring.
 
-## Phase 5: Database and API Hardening (Priority: Medium) ✅ IN PROGRESS
+## Phase 5: Database and API Hardening (Priority: Medium) ✅ COMPLETE
 1. ✅ Migrate from SQLite to PostgreSQL for production readiness.
 2. ✅ Add evidence metadata indexing for faster retrieval.
 3. ✅ Introduce API layer versioning and validation.
@@ -119,7 +120,7 @@ Tasks:
 - [ ] Replace local storage with AWS S3 or compatible backend.
 - [x] Migrate database from SQLite to PostgreSQL.
 
-Current next step: complete cloud storage backend rollout (S3) and parity tests.
+Current next step: validate the S3 storage adapter with real AWS credentials, then add simple node-health and replication visibility.
 
 Success Criteria (Phase 3 ✅ Complete):
 - Unauthorized roles cannot access restricted actions. ✅
