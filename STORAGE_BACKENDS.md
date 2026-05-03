@@ -2,6 +2,8 @@
 
 The forensic evidence management system now uses a pluggable storage adapter that supports multiple backends for storing encrypted evidence.
 
+Note: Local runtime folders such as `storage_nodes/` are excluded from the repository and were removed from history to avoid leaking stored evidence. If you cloned this repository before that rewrite, re-clone to avoid references to removed objects.
+
 ### Backends
 
 #### Local Storage (Default)

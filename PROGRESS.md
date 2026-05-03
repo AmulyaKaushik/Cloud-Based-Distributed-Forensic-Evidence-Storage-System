@@ -1,7 +1,7 @@
 # Project Progress and Remaining Work
 
 Project Title: Cloud-Based Distributed Forensic Evidence Storage System
-Last Updated: 2026-04-29
+Last Updated: 2026-05-03
 
 ## 1. Current Completion Snapshot
 
@@ -20,7 +20,6 @@ Last Updated: 2026-04-29
 - Distributed storage is still simulated locally; cloud object storage is not live yet.
 - Storage adapter exists, but S3 backend validation with real credentials is still pending.
 - Replication/node-health visibility is basic and not yet a full monitoring layer.
-- Optional blockchain integrity anchoring is not implemented.
 
 ### Not Implemented Yet
 - Optional blockchain integrity layer.
@@ -101,11 +100,12 @@ Deliverable (in progress): pluggable storage abstraction enabling cloud migratio
 
 Deliverable: hardened backend with PostgreSQL, indexed queries, validated v1 APIs, and expanded automated test coverage.
 
-## Phase 6: Optional Blockchain Layer (Advanced)
-1. Store hash fingerprints of evidence/audit events on Hyperledger Fabric.
-2. Implement verification endpoint to cross-check DB hash with blockchain entry.
+## Phase 6: Optional Blockchain Layer (Advanced) ✅ IMPLEMENTED (off-chain)
+1. Implemented a private, Ed25519-signed off-chain audit ledger persisted to `blockchain/chain.json`.
+2. Added endpoints and UI components to view the chain, validate it, and create anchors (`/blockchain`, `/api/v1/chain`, `/api/v1/validate-chain`, `/api/v1/anchor`).
+3. The ledger is local/off-chain (no Solidity smart contracts). Anchors can be exported for optional external anchoring.
 
-Deliverable: immutable external proof layer.
+Deliverable: tamper-evident off-chain audit ledger with signing and anchor support.
 
 ## 4. Immediate Next Sprint (Recommended)
 

@@ -32,6 +32,7 @@ Envelope 1 (Block 0):
 └─────────────────────────┘
            ↓
 Envelope 2 (Block 1):
+```
 ┌─────────────────────────────────────────┐
 │ Action: UPLOAD                          │
 │ User: police_officer                    │

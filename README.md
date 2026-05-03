@@ -157,6 +157,10 @@ CREATE TABLE evidence(
 | `/verify` | GET, POST | Verify evidence integrity |
 | `/logs` | GET | View audit logs |
 | `/logout` | GET | Logout user |
+| `/blockchain` | GET | Blockchain dashboard (chain view, anchors) |
+| `/api/v1/chain` | GET | Return JSON of chain |
+| `/api/v1/validate-chain` | GET | Validate chain integrity |
+| `/api/v1/anchor` | POST | Create an anchor (store snapshot metadata in DB) |
 
 ## How It Works
 
@@ -176,7 +180,7 @@ Simple meaning:
 - You use the website.
 - The Flask app saves text info in the database.
 - The Flask app saves the encrypted file in storage.
-- Blockchain is only a future idea for saving proof hashes.
+- Blockchain (implemented off-chain): the project now maintains a local, tamper-evident, Ed25519-signed append-only ledger persisted at `blockchain/chain.json`. The ledger is used as an additional, cryptographic audit trail alongside the database.
 
 #### More detailed diagram
 
@@ -251,6 +255,8 @@ Examples:
 - Restrict file upload size limits
 - Implement role-based access controls more granularly
 - Use proper database connection pooling
+- Do not commit private keys: `blockchain/key.pem` and other private runtime secrets must never be committed. If they were pushed previously, rotate them immediately and update deployed instances.
+- If you cloned the repo before a history-rewrite was performed, re-clone the repository now to avoid locally-referenced removed objects.
 
 ## Future Enhancements
 

@@ -14,6 +14,12 @@ In its current state, the system provides:
 - Evidence inventory and authorized download
 - Structured chain-of-custody logging with CSV export
 - A browser-based interface for all main workflows
+ - Replication of encrypted evidence across three storage nodes
+ - Integrity verification by comparing uploaded file hashes with stored records
+ - Evidence inventory and authorized download
+ - Structured chain-of-custody logging with CSV export
+ - A browser-based interface for all main workflows
+ - An off-chain, Ed25519-signed append-only audit ledger persisted under `blockchain/` for tamper-evident proof
 
 The project is implemented primarily in [app.py](/c:/Users/anura/OneDrive/Desktop/forensic2/app.py), with Vercel support exposed through [api/index.py](/c:/Users/anura/OneDrive/Desktop/forensic2/api/index.py).
 
@@ -54,6 +60,7 @@ This directory contains:
 - `database.db`
 - `storage_nodes/`
 - `audit_logs/`
+ - `blockchain/` (chain.json and signer key are stored here at runtime; private keys must not be committed)
 
 ### Important environment variables
 
