@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blockchain Audit Chain</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .blockchain-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .chain-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .status-card {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            text-align: center;
+        }
+        .status-card strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .badge-valid {
+            background-color: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .badge-invalid {
+            background-color: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .table-responsive {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        th {
+            background-color: #f9f9f9;
+            font-weight: bold;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 2px solid #ddd;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .code-block {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 10px;
+            font-family: monospace;
+            word-break: break-all;
+            font-size: 12px;
+        }
+        .section-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+            position: relative;
+        }
+        .section-body {
+            padding: 20px;
+        }
+        .api-list {
+            background-color: #f9f9f9;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            border-radius: 3px;
+        }
+        .api-list ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .api-list li {
+            margin: 8px 0;
+        }
+        .btn-export {
+            background-color: #6c757d;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .btn-export:hover {
+            background-color: #5a6268;
+        }
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 30px;
+        }
+        .anchor-btn {
+            padding: 6px 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .anchor-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+        .anchor-actions {
+            text-align: right;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <div>
+            <h2>Blockchain Audit Chain</h2>
+            <span class="role-badge role-{{ role }}">{{ role.replace('_', ' ').title() }}</span>
+        </div>
+        <a href="/logout"><button class="btn-secondary">Logout</button></a>
+    </div>
+
+    <div class="blockchain-container">
+        <p style="color: #666; margin-bottom: 20px;">Cryptographically signed ledger of all audit events.</p>
+
+        <!-- Chain Status Cards -->
+        <div class="chain-status">
+            <div class="status-card">
+                <strong>Chain Length</strong>
+                <div style="font-size: 2em; color: #007bff; font-weight: bold;">{{ chain_length }}</div>
+            </div>
+            <div class="status-card">
+                <strong>Chain Integrity</strong>
+                <div class="{% if is_valid %}badge-valid{% else %}badge-invalid{% endif %}">
+                    {% if is_valid %}✓ Valid{% else %}✗ Invalid{% endif %}
+                </div>
+            </div>
+            <div class="status-card">
+                <strong>Status Message</strong>
+                <div style="font-size: 0.9em; color: #666;">{{ validation_message }}</div>
+            </div>
+        </div>
+
+        <!-- Public Key Section -->
+        <div class="section-card">
+            <div class="section-header">Public Key (for external verification)</div>
+            <div class="section-body">
+                <label><strong>Ed25519 Public Key (hex):</strong></label>
+                <div class="code-block" style="margin-top: 10px; height: 60px; overflow-y: auto;">{{ public_key_hex }}</div>
+                <p style="color: #666; font-size: 0.9em; margin-top: 10px;">Share this key with auditors to allow independent chain verification.</p>
+            </div>
+        </div>
+
+        <!-- Recent Blocks -->
+        <div class="section-card">
+            <div class="section-header">Recent Blocks (Last 10)</div>
+            <div class="section-body">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Index</th>
+                                <th>Timestamp</th>
+                                <th>Tx Count</th>
+                                <th>Hash (first 16 chars)</th>
+                                <th>Prev Hash (first 16 chars)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for block in recent_blocks %}
+                            <tr>
+                                <td><strong>{{ block.index }}</strong></td>
+                                <td><small>{{ block.timestamp }}</small></td>
+                                <td><span style="background-color: #e9ecef; padding: 3px 8px; border-radius: 3px;">{{ block.transactions|length }}</span></td>
+                                <td><code style="background-color: #f5f5f5;">{{ block.hash[:16] }}...</code></td>
+                                <td><code style="background-color: #f5f5f5;">{{ block.prev_hash[:16] }}...</code></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anchors History -->
+        <div class="section-card">
+            <div class="section-header" style="background-color: #ffc107; color: black;">Anchor History (Recent 10)</div>
+            <div class="section-body">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Chain Length</th>
+                                <th>Anchor Hash (first 16 chars)</th>
+                                <th>Created By</th>
+                                <th>Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if anchors %}
+                                {% for anchor in anchors %}
+                                <tr>
+                                    <td><strong>{{ anchor.id }}</strong></td>
+                                    <td>{{ anchor.chain_length }}</td>
+                                    <td><code style="background-color: #f5f5f5;">{{ anchor.anchor_hash[:16] }}...</code></td>
+                                    <td>{{ anchor.created_by }}</td>
+                                    <td><small>{{ anchor.created_at }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="empty-state">No anchors yet. Create one with the API endpoint.</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if 'manage_users' in permissions %}
+                <div class="anchor-actions">
+                    <button id="create-anchor-btn" class="anchor-btn" onclick="createAnchor()" type="button">Create Anchor</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Export & Verification -->
+        <div class="section-card">
+            <div class="section-header" style="background-color: #6c757d;">Export & Verification</div>
+            <div class="section-body">
+                <p>Use the following API endpoints for programmatic access:</p>
+                <div class="api-list">
+                    <ul>
+                        <li><code>GET /api/v1/chain</code> — Export full chain as JSON</li>
+                        <li><code>GET /api/v1/validate-chain</code> — Validate chain and return status</li>
+                        <li><code>POST /api/v1/anchor</code> — Create a new anchor (admin only)</li>
+                    </ul>
+                </div>
+                <a href="/api/v1/chain" class="btn-export" target="_blank">View Full Chain (JSON)</a>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; color: #999; font-size: 0.9em;">
+            <a href="/dashboard" style="color: #007bff; text-decoration: none;">← Back to Dashboard</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function createAnchor(){
+    if(!confirm('Create a new anchor for the current chain head?')) return;
+    fetch('/api/v1/anchor', { method: 'POST', credentials: 'same-origin' })
+        .then(res => res.json().then(j => ({ status: res.status, body: j })))
+        .then(({ status, body }) => {
+            if(status >= 200 && status < 300 && body.anchor_id){
+                alert('Anchor created: ID ' + body.anchor_id + '\nHash: ' + body.anchor_hash);
+                window.location.reload();
+            } else {
+                alert('Failed to create anchor: ' + (body.message || JSON.stringify(body)));
+            }
+        })
+        .catch(err => alert('Request error: ' + err));
+}
+</script>
+
+</body>
+</html>

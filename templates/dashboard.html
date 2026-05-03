@@ -50,6 +50,14 @@
         </a>
         {% endif %}
 
+        {% if 'logs' in permissions %}
+        <a href="/blockchain" class="card">
+            <div class="card-icon">&#9679;&#9679;&#9679;</div>
+            <div class="card-title">Blockchain</div>
+            <div class="card-desc">View cryptographically signed audit chain</div>
+        </a>
+        {% endif %}
+
         {% if 'manage_users' in permissions %}
         <a href="/register" class="card">
             <div class="card-icon">&#128100;</div>

@@ -302,6 +302,19 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_audit_username ON audit_logs(username)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_audit_evidence_id ON audit_logs(evidence_id)")
 
+    # Anchors table for off-chain blockchain anchors
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS anchors(
+        id SERIAL PRIMARY KEY,
+        anchor_hash TEXT,
+        chain_length INTEGER,
+        created_by TEXT,
+        created_at TEXT,
+        tx_ref TEXT
+    )
+    ''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_anchors_created_at ON anchors(created_at)")
+
     # Seed a default admin if none exists
     c.execute("SELECT COUNT(*) FROM users WHERE role='admin'")
     if c.fetchone()[0] == 0:
@@ -318,6 +331,10 @@ init_db()
 
 # Initialize storage adapter
 storage_adapter = get_storage_adapter()
+from blockchain import Blockchain
+
+# Initialize local blockchain for audit entries
+evidence_chain = Blockchain(os.path.join(RUNTIME_DATA_DIR, "blockchain"))
 
 
  
@@ -352,6 +369,22 @@ def write_log(username, action, evidence_id=None, status="success", details=""):
             VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
         """, (username, role, action, status, timestamp, source_ip, evidence_id, details))
         conn.commit()
+        # Best-effort: append the same audit entry to the local blockchain
+        try:
+            tx = {
+                "username": username,
+                "user_role": role,
+                "action": action,
+                "status": status,
+                "timestamp": timestamp,
+                "source_ip": source_ip,
+                "evidence_id": evidence_id,
+                "details": details,
+            }
+            evidence_chain.add_block([tx])
+        except Exception:
+            # Do not disrupt main flow if blockchain persistence fails — write to legacy file instead.
+            write_log_file(username, f"BLOCKCHAIN_APPEND_FAILED ACTION:{action}")
         conn.close()
     except psycopg.Error:
         # Avoid crashing primary action if logging fails under transient lock.
@@ -661,6 +694,67 @@ def download(evidence_id):
 
 
  
+# VIEW BLOCKCHAIN AUDIT CHAIN
+ 
+
+@app.route("/blockchain")
+@role_required("logs")
+def view_blockchain():
+    """Display blockchain status, recent blocks, and anchors."""
+    # Get chain data
+    chain_length = len(evidence_chain.chain)
+    is_valid, validation_message = evidence_chain.validate()
+    
+    # Get recent blocks (last 10)
+    recent_blocks = [b.to_dict() for b in evidence_chain.chain[-10:]]
+    recent_blocks.reverse()  # Show newest first
+    
+    # Get public key hex
+    from cryptography.hazmat.primitives import serialization
+    pub_bytes = evidence_chain.pub.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+    public_key_hex = pub_bytes.hex()
+    
+    # Get recent anchors
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, anchor_hash, chain_length, created_by, created_at
+        FROM anchors
+        ORDER BY created_at DESC
+        LIMIT 10
+    """)
+    anchor_rows = c.fetchall()
+    conn.close()
+    
+    anchors = []
+    for row in anchor_rows:
+        anchors.append({
+            "id": row[0],
+            "anchor_hash": row[1],
+            "chain_length": row[2],
+            "created_by": row[3],
+            "created_at": row[4]
+        })
+    
+    # Compute permissions for the current role so template can show admin actions
+    role = session.get("role", "")
+    permissions = ROLE_PERMISSIONS.get(role, set())
+
+    write_log(session["user"], "VIEW_BLOCKCHAIN", status="success", details=f"Chain length: {chain_length}")
+
+    return render_template("blockchain.html",
+                           chain_length=chain_length,
+                           is_valid=is_valid,
+                           validation_message=validation_message,
+                           recent_blocks=recent_blocks,
+                           public_key_hex=public_key_hex,
+                           anchors=anchors,
+                           user=session["user"],
+                           role=role,
+                           permissions=permissions)
+
+
+ 
 # VIEW AUDIT LOGS
  
 
@@ -951,6 +1045,59 @@ def api_verify_hash():
         }
     )
 
+
+
+@app.route("/api/v1/anchor", methods=["POST"]) 
+@api_role_required("manage_users")
+def api_anchor():
+    """Compute current chain head and persist an anchor row (best-effort, off-chain)."""
+    try:
+        head = evidence_chain.chain[-1].hash
+    except Exception:
+        return jsonify({"error": "no_chain", "message": "blockchain not initialized"}), 500
+
+    length = len(evidence_chain.chain)
+    created_at = str(datetime.now())
+
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO anchors(anchor_hash, chain_length, created_by, created_at) VALUES(%s,%s,%s,%s) RETURNING id",
+            (head, length, session.get("user"), created_at),
+        )
+        anchor_id = c.fetchone()[0]
+        conn.commit()
+        conn.close()
+
+        write_log(session.get("user"), "ANCHOR", status="success", details=f"anchor_id:{anchor_id} hash:{head}")
+
+        return jsonify({"version": "v1", "anchor_id": anchor_id, "anchor_hash": head, "chain_length": length, "created_at": created_at})
+    except Exception as e:
+        write_log(session.get("user"), "ANCHOR", status="failure", details=str(e))
+        return jsonify({"error": "db_error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/chain", methods=["GET"]) 
+@api_role_required("logs")
+def api_chain():
+    """Return the full chain JSON (read-only)."""
+    try:
+        chain_list = [b.to_dict() for b in evidence_chain.chain]
+        return jsonify({"version": "v1", "count": len(chain_list), "chain": chain_list})
+    except Exception as e:
+        return jsonify({"error": "no_chain", "message": str(e)}), 500
+
+
+@app.route("/api/v1/validate-chain", methods=["GET"]) 
+@api_role_required("logs")
+def api_validate_chain():
+    """Validate chain integrity and signatures."""
+    try:
+        valid, msg = evidence_chain.validate()
+        return jsonify({"version": "v1", "valid": valid, "message": msg})
+    except Exception as e:
+        return jsonify({"error": "validation_error", "message": str(e)}), 500
 
 
 # ERROR HANDLERS
