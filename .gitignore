@@ -1,3 +1,38 @@
-# Ignore environment files and virtualenv
+# Python / virtualenv
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment & secrets
 .env
-.venv
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+credentials
+.aws/
+
+# Runtime data (do not store evidence or logs)
+storage_nodes/
+audit_logs/
+blockchain/chain.json
+blockchain/key.pem
+
+# Local DB / dumps
+*.sqlite3
+*.db
+dump.sql
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+
+# Editor / OS
+.vscode/
+*.swp
+.DS_Store
