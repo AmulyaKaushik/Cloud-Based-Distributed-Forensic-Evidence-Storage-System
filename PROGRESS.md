@@ -17,9 +17,9 @@ Last Updated: 2026-05-03
 - Automated test suite for auth, upload, verify, and API v1 endpoints.
 
 ### Partially Implemented
-- Distributed storage is still simulated locally; cloud object storage is not live yet.
-- Storage adapter exists, but S3 backend validation with real credentials is still pending.
-- Replication/node-health visibility is basic and not yet a full monitoring layer.
+- Distributed storage is still simulated locally by default; S3 backend support is available but not yet tested with real AWS credentials in production.
+- Storage adapter supports S3 configuration via environment variables; node health/replication visibility is basic.
+- Blockchain is implemented locally; optional external anchoring (e.g., on a public blockchain) is not yet integrated.
 
 ### Not Implemented Yet
 - Optional blockchain integrity layer.
@@ -120,7 +120,7 @@ Tasks:
 - [ ] Replace local storage with AWS S3 or compatible backend.
 - [x] Migrate database from SQLite to PostgreSQL.
 
-Current next step: validate the S3 storage adapter with real AWS credentials, then add simple node-health and replication visibility.
+Current next step: test S3 adapter with real AWS credentials in a staging environment, validate production key rotation workflows, and then add simple node-health and replication visibility for monitoring.
 
 Success Criteria (Phase 3 ✅ Complete):
 - Unauthorized roles cannot access restricted actions. ✅
