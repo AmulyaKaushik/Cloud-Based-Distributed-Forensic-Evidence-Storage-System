@@ -4,7 +4,6 @@ import os
 # Add parent directory to path so we can import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import the Flask app - Vercel auto-detects this
 from app import app
 
-# Export app for Vercel serverless
-__all__ = ['app']

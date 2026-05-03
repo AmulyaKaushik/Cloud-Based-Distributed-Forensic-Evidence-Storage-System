@@ -327,7 +327,13 @@ def init_db():
 
 
 ensure_runtime_dirs()
-init_db()
+
+# Safely initialize database - wrap in try-except for serverless environments
+try:
+    init_db()
+except Exception as e:
+    print(f"[WARNING] Database initialization failed on startup: {e}")
+    print("Will retry on first request...")
 
 # Initialize storage adapter
 storage_adapter = get_storage_adapter()
@@ -418,6 +424,24 @@ def generate_hash(path):
 # Note: Storage operations are now delegated to the storage adapter.
 # See storage_adapter.py for backend implementations.
 
+# Global flag to track if database has been initialized
+_db_initialized = False
+
+@app.before_request
+def ensure_db_ready():
+    """Ensure database is initialized before handling any request."""
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            init_db()
+            _db_initialized = True
+        except Exception as e:
+            print(f"[ERROR] Failed to initialize database: {e}")
+            # Allow public endpoints like /health to work
+            if request.path not in ['/health', '/api/v1/health']:
+                return jsonify({"error": "database_unavailable", "message": "Database not available. Please try again later."}), 503
+            # For health check, proceed but report error
+            pass
 
  
 # LOGIN
