@@ -173,14 +173,16 @@ flowchart LR
    U[You] --> A[Flask app]
    A --> D[(Database)]
    A --> S[(File storage)]
-   A -. future .-> B[(Blockchain)]
+   A --> C[(Blockchain (local, signed) - chain.json)]
+   C --> AN[(Anchors)]
+   AN --> D
 ```
 
 Simple meaning:
 - You use the website.
 - The Flask app saves text info in the database.
 - The Flask app saves the encrypted file in storage.
-- Blockchain (implemented off-chain): the project now maintains a local, tamper-evident, Ed25519-signed append-only ledger persisted at `blockchain/chain.json`. The ledger is used as an additional, cryptographic audit trail alongside the database.
+- The app appends signed audit blocks to a local blockchain stored at `blockchain/chain.json` and can create anchors (snapshots) recorded in the database.
 
 #### More detailed diagram
 
@@ -195,8 +197,11 @@ flowchart LR
    SA --> N3[Local Node 3]
    SA -. optional .-> S3[(AWS S3)]
    A --> H[Health Endpoint]
-   A -. future .-> B[Blockchain Layer]
-   B -. stores only hashes .-> DB
+   A --> C[Blockchain (chain.json, signed)]
+   C --> AN[Anchors table]
+   AN --> DB
+   C --> Auditor[Auditor / Public Verification]
+   Auditor --> C
 ```
 
 More detailed meaning:
