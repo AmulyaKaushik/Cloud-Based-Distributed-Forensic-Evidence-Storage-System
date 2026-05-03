@@ -173,8 +173,8 @@ flowchart LR
    U[You] --> A[Flask app]
    A --> D[(Database)]
    A --> S[(File storage)]
-   A --> C[(Blockchain (local, signed) - chain.json)]
-   C --> AN[(Anchors)]
+   A --> C[Blockchain - chain_json]
+   C --> AN[Anchors]
    AN --> D
 ```
 
@@ -197,7 +197,7 @@ flowchart LR
    SA --> N3[Local Node 3]
    SA -. optional .-> S3[(AWS S3)]
    A --> H[Health Endpoint]
-   A --> C[Blockchain (chain.json, signed)]
+   A --> C[Blockchain - chain_json]
    C --> AN[Anchors table]
    AN --> DB
    C --> Auditor[Auditor / Public Verification]
