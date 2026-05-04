@@ -93,22 +93,53 @@ class ForensicAppTestCase(unittest.TestCase):
         conn = self.module.get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT filename, hash, encrypted_filename FROM evidence WHERE filename=%s",
+            "SELECT filename, hash, encrypted_filename, ocr_status FROM evidence WHERE filename=%s",
             ("evidence.txt",),
         )
         row = cursor.fetchone()
         conn.close()
 
         self.assertIsNotNone(row)
-        filename, stored_hash, encrypted_filename = row
+        filename, stored_hash, encrypted_filename, ocr_status = row
         self.assertEqual(filename, "evidence.txt")
         self.assertEqual(stored_hash, hashlib.sha256(b"evidence payload").hexdigest())
+        self.assertEqual(ocr_status, "not_requested")
 
         for node in self.module.NODES:
             replica_path = os.path.join(node, encrypted_filename)
             self.assertTrue(os.path.exists(replica_path))
             with open(replica_path, "rb") as replica_file:
                 self.assertNotEqual(replica_file.read(), b"evidence payload")
+
+    def test_upload_with_ocr_requested_records_status(self):
+        self.login("admin", "admin123")
+
+        response = self.client.post(
+            "/upload",
+            data={
+                "file": (io.BytesIO(b"plain text content"), "ocr-test.txt"),
+                "run_ocr": "1",
+            },
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"OCR: skipped unsupported file type", response.data)
+
+        conn = self.module.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT ocr_engine, ocr_status, ocr_text FROM evidence WHERE filename=%s",
+            ("ocr-test.txt",),
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        self.assertIsNotNone(row)
+        ocr_engine, ocr_status, ocr_text = row
+        self.assertEqual(ocr_engine, "tesseract")
+        self.assertEqual(ocr_status, "skipped_unsupported")
+        self.assertIsNone(ocr_text)
 
     def test_verify_detects_match_and_tampering(self):
         self.login("admin", "admin123")

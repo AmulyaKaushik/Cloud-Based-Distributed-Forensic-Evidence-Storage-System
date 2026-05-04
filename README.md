@@ -50,6 +50,7 @@ This forensic evidence management system provides a complete solution for secure
 - File type validation (images, video, audio, PDF, documents)
 - Automatic SHA-256 hashing of original files
 - AES-256-GCM encryption before storage
+- Optional OCR text extraction during upload (Tesseract Open Source OCR)
 - Automatic replication to three local nodes OR direct upload to AWS S3
 - Evidence metadata stored in PostgreSQL with proper indexing
 
@@ -128,14 +129,14 @@ This forensic evidence management system provides a complete solution for secure
    # Required
    DATABASE_URL=postgresql://user:password@host:port/dbname?sslmode=require
 
-   # Optional but recommended for production
-   SECRET_KEY=your-secret-key-here
-   EVIDENCE_AES_KEY=your-base64-32-byte-key
-   STORAGE_BACKEND=local  # or 's3' for AWS S3
-   
-   # If using S3 storage
-   S3_BUCKET_NAME=your-bucket-name
-   AWS_REGION=us-east-1
+    # Optional but recommended for production
+    SECRET_KEY=your-secret-key-here
+    EVIDENCE_AES_KEY=your-base64-32-byte-key
+    STORAGE_BACKEND=local  # or 's3' for AWS S3
+    
+    # If using S3 storage
+    S3_BUCKET_NAME=your-bucket-name
+    AWS_REGION=us-east-1
    ```
 
 5. **Run the application:**
@@ -220,6 +221,14 @@ sequenceDiagram
 | `AWS_REGION` | ❌ No | `us-east-1` | AWS region for S3 |
 | `RUNTIME_DATA_DIR` | ❌ No | Project root (or `/tmp/forensic2` on Vercel) | Directory for runtime data (blockchain, audit logs, local nodes) |
 
+### OCR Configuration (Optional)
+
+OCR runs at upload time only when selected in the upload form.
+
+- **Tesseract OCR:** install the Tesseract binary on the host machine and ensure it's available on PATH.
+- Optional override: set `TESSERACT_CMD` to the absolute path of `tesseract.exe`.
+- Supported OCR file types: `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`.
+
 ### PostgreSQL Setup
 
 #### Option 1: Local PostgreSQL
@@ -278,6 +287,7 @@ pip install boto3  # Required for S3 backend
 5. System:
    - Computes SHA-256 hash of original file
    - Encrypts file using AES-256-GCM
+   - Optionally extracts OCR text and stores OCR metadata
    - Replicates encrypted copy to storage backend
    - Stores metadata and hash in database
    - Appends audit entry to blockchain
@@ -485,7 +495,10 @@ CREATE TABLE evidence (
     uploaded_by TEXT NOT NULL,
     upload_time TEXT NOT NULL,
     encrypted_filename TEXT NOT NULL,        -- Stored name in storage backend
-    encryption_algo TEXT NOT NULL            -- e.g., "AES-256-GCM"
+    encryption_algo TEXT NOT NULL,           -- e.g., "AES-256-GCM"
+    ocr_text TEXT,                           -- OCR output (if requested)
+    ocr_engine TEXT,                         -- tesseract
+    ocr_status TEXT DEFAULT 'not_requested'  -- success, failed, skipped_unsupported, etc.
 );
 ```
 

@@ -14,6 +14,7 @@ from functools import wraps
 from io import BytesIO, StringIO
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from storage_adapter import get_storage_adapter
+from ocr_service import extract_evidence_text
 
 load_dotenv()
 
@@ -288,9 +289,17 @@ def init_db():
         uploaded_by TEXT,
         upload_time TEXT,
         encrypted_filename TEXT,
-        encryption_algo TEXT
+        encryption_algo TEXT,
+        ocr_text TEXT,
+        ocr_engine TEXT,
+        ocr_status TEXT DEFAULT 'not_requested'
     )
     ''')
+
+    c.execute("ALTER TABLE evidence ADD COLUMN IF NOT EXISTS ocr_text TEXT")
+    c.execute("ALTER TABLE evidence ADD COLUMN IF NOT EXISTS ocr_engine TEXT")
+    c.execute("ALTER TABLE evidence ADD COLUMN IF NOT EXISTS ocr_status TEXT DEFAULT 'not_requested'")
+    c.execute("UPDATE evidence SET ocr_status='not_requested' WHERE ocr_status IS NULL")
 
     c.execute('''
     CREATE TABLE IF NOT EXISTS audit_logs(
@@ -561,6 +570,8 @@ def dashboard():
 def upload():
     if request.method == "POST":
         file = request.files.get("file")
+        run_ocr = request.form.get("run_ocr") == "1"
+        ocr_engine = "tesseract"
 
         if not file or file.filename == "":
             return render_template("upload.html", error="No file selected.")
@@ -573,9 +584,20 @@ def upload():
         temp_plain = "temp_" + safe_name
         temp_encrypted = "enc_" + safe_name + ".bin"
         encrypted_name = safe_name + ".enc"
+        ocr_text = None
+        ocr_status = "not_requested"
+        selected_ocr_engine = None
+        ocr_message = None
 
         try:
             file.save(temp_plain)
+
+            if run_ocr:
+                ocr_result = extract_evidence_text(temp_plain, safe_name, ocr_engine)
+                ocr_text = ocr_result["text"]
+                ocr_status = ocr_result["status"]
+                selected_ocr_engine = ocr_result["engine"]
+                ocr_message = ocr_result["message"]
 
             # Preserve original-file hash for integrity verification.
             hash_value = generate_hash(temp_plain)
@@ -588,24 +610,46 @@ def upload():
             c = conn.cursor()
             c.execute(
                 """
-                INSERT INTO evidence(filename,hash,uploaded_by,upload_time,encrypted_filename,encryption_algo)
-                VALUES(%s,%s,%s,%s,%s,%s)
+                INSERT INTO evidence(
+                    filename,hash,uploaded_by,upload_time,encrypted_filename,encryption_algo,ocr_text,ocr_engine,ocr_status
+                )
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING id
                 """,
-                (safe_name, hash_value, session["user"], str(datetime.now()), encrypted_name, "AES-256-GCM")
+                (
+                    safe_name,
+                    hash_value,
+                    session["user"],
+                    str(datetime.now()),
+                    encrypted_name,
+                    "AES-256-GCM",
+                    ocr_text,
+                    selected_ocr_engine,
+                    ocr_status,
+                ),
             )
             ev_id = c.fetchone()[0]
             conn.commit()
             conn.close()
 
-            write_log(session["user"], "UPLOAD", evidence_id=ev_id, status="success", details=f"Filename: {safe_name}, Encrypted: {encrypted_name}")
+            write_log(
+                session["user"],
+                "UPLOAD",
+                evidence_id=ev_id,
+                status="success",
+                details=f"Filename: {safe_name}, Encrypted: {encrypted_name}, OCR: {ocr_status}",
+            )
         finally:
             if os.path.exists(temp_plain):
                 os.remove(temp_plain)
             if os.path.exists(temp_encrypted):
                 os.remove(temp_encrypted)
 
-        return render_template("upload.html", success=f"'{safe_name}' uploaded and replicated successfully.")
+        success = f"'{safe_name}' uploaded and replicated successfully."
+        if run_ocr:
+            success = f"{success} OCR: {ocr_message}."
+
+        return render_template("upload.html", success=success)
 
     return render_template("upload.html")
 
@@ -661,7 +705,7 @@ def evidence():
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("""
-        SELECT id, filename, uploaded_by, upload_time, encryption_algo 
+        SELECT id, filename, uploaded_by, upload_time, encryption_algo, ocr_engine, ocr_status, ocr_text
         FROM evidence 
         ORDER BY upload_time DESC
     """)
@@ -675,7 +719,10 @@ def evidence():
             "filename": row[1],
             "uploaded_by": row[2],
             "upload_time": row[3],
-            "encryption_algo": row[4] or "None"
+            "encryption_algo": row[4] or "None",
+            "ocr_engine": row[5] or "N/A",
+            "ocr_status": row[6] or "not_requested",
+            "ocr_excerpt": ((row[7] or "")[:140] + "...") if row[7] and len(row[7]) > 140 else (row[7] or ""),
         })
 
     return render_template("evidence.html", evidence=evidence_list, user=session["user"], role=session.get("role"))
@@ -1013,7 +1060,7 @@ def api_list_evidence():
     c = conn.cursor()
     c.execute(
         """
-        SELECT id, filename, uploaded_by, upload_time, encryption_algo
+        SELECT id, filename, uploaded_by, upload_time, encryption_algo, ocr_engine, ocr_status, ocr_text
         FROM evidence
         ORDER BY upload_time DESC
         LIMIT %s
@@ -1032,6 +1079,9 @@ def api_list_evidence():
                 "uploaded_by": row[2],
                 "upload_time": row[3],
                 "encryption_algo": row[4] or "None",
+                "ocr_engine": row[5] or None,
+                "ocr_status": row[6] or "not_requested",
+                "ocr_text_excerpt": ((row[7] or "")[:200] + "...") if row[7] and len(row[7]) > 200 else (row[7] or ""),
             }
         )
 

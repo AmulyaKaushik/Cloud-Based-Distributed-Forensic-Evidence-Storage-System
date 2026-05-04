@@ -23,6 +23,8 @@
                         <th>Uploaded By</th>
                         <th>Upload Time</th>
                         <th>Encryption</th>
+                        <th>OCR</th>
+                        <th>Extracted Text (Preview)</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -33,6 +35,13 @@
                         <td>{{ item.uploaded_by }}</td>
                         <td><small>{{ item.upload_time }}</small></td>
                         <td><span class="encryption-badge">{{ item.encryption_algo }}</span></td>
+                        <td>
+                            <small>{{ item.ocr_status }}</small>
+                            {% if item.ocr_engine != "N/A" %}
+                            <br><small>{{ item.ocr_engine }}</small>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ item.ocr_excerpt or "-" }}</small></td>
                         <td>
                             <a href="/download/{{ item.id }}"><button class="btn-small">Download</button></a>
                         </td>
