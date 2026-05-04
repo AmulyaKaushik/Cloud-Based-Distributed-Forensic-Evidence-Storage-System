@@ -1,15 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Evidence</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="container">
+<header class="topbar">
+    <div class="topbar-title">
+        <strong>Evidence Intake</strong>
+        <span>Distributed secure ingestion workflow</span>
+    </div>
+    <div class="topbar-actions">
+        {% if session.get('role') %}
+        <span class="role-badge role-{{ session.get('role') }}">{{ session.get('role').replace('_', ' ').title() }}</span>
+        {% endif %}
+        <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
+    </div>
+</header>
 
+<div class="page-shell">
+<div class="container">
     <h2>Upload Evidence</h2>
-    <p class="subtitle">Accepted: images, video, audio, PDF, documents</p>
+    <p class="subtitle">Accepted formats: images, videos, audio, PDF, and office/text documents.</p>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
@@ -22,15 +37,19 @@
     <form method="POST" enctype="multipart/form-data">
         <label>Select File</label>
         <input type="file" name="file" required>
-        <label style="margin-top: 12px;">
-            <input type="checkbox" name="run_ocr" value="1"> Extract text with OCR
+
+        <label class="checkbox-label">
+            <input type="checkbox" name="run_ocr" value="1">Enable OCR extraction for searchable evidence text
         </label>
-        <button type="submit">Upload &amp; Replicate</button>
+
+        <button type="submit" class="btn btn-primary btn-full">Upload &amp; Replicate</button>
     </form>
 
-    <br>
-    <a href="/dashboard"><button class="btn-secondary">Return to Dashboard</button></a>
+    <div class="footer-link">
+        <a href="/dashboard" class="btn btn-secondary">Return to Dashboard</a>
+    </div>
 
+</div>
 </div>
 
 </body>

@@ -1,35 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify Evidence</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
+<header class="topbar">
+    <div class="topbar-title">
+        <strong>Integrity Verification</strong>
+        <span>Detect tampering against stored evidence fingerprints</span>
+    </div>
+    <div class="topbar-actions">
+        {% if session.get('role') %}
+        <span class="role-badge role-{{ session.get('role') }}">{{ session.get('role').replace('_', ' ').title() }}</span>
+        {% endif %}
+        <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
+    </div>
+</header>
+
+<div class="page-shell">
 <div class="container">
 
     <h2>Verify Evidence Integrity</h2>
-    <p class="subtitle">Upload a file to compare its hash against the stored record</p>
+    <p class="subtitle">Upload a file and compare its SHA-256 hash with the immutable database record.</p>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
     {% if result == 'verified' %}
-    <div class="alert alert-success">&#10003; {{ message }}</div>
+    <div class="alert alert-success">✅ {{ message }}</div>
     {% elif result == 'tampered' %}
-    <div class="alert alert-error">&#9888; {{ message }}</div>
+    <div class="alert alert-error">⚠️ {{ message }}</div>
     {% endif %}
 
     <form method="POST" enctype="multipart/form-data">
         <label>Select File to Verify</label>
         <input type="file" name="file" required>
-        <button type="submit">Verify Integrity</button>
+        <button type="submit" class="btn btn-primary btn-full">Run Verification</button>
     </form>
 
-    <br>
-    <a href="/dashboard"><button class="btn-secondary">Return to Dashboard</button></a>
+    <div class="footer-link">
+        <a href="/dashboard" class="btn btn-secondary">Return to Dashboard</a>
+    </div>
 
+</div>
 </div>
 
 </body>

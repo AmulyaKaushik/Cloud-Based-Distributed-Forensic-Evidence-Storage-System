@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Access Denied</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<div class="container" style="text-align:center; margin-top:140px;">
-    <h2 style="color:#dc3545;">&#x26A0; Access Denied</h2>
-    <p>{{ message }}</p>
-    <br>
-    <a href="/dashboard"><button>Return to Dashboard</button></a>
+<div class="page-shell">
+    <div class="container error-card">
+        <h2>⚠ Access Restricted</h2>
+        <p class="subtitle">{{ message }}</p>
+        <a href="/dashboard" class="btn btn-primary">Return to Dashboard</a>
+    </div>
 </div>
 </body>
 </html>

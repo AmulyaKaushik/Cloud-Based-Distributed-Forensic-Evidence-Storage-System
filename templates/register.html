@@ -1,15 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register User</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="container">
+<header class="topbar">
+    <div class="topbar-title">
+        <strong>User Provisioning</strong>
+        <span>Role-based access control administration</span>
+    </div>
+    <div class="topbar-actions">
+        {% if session.get('role') %}
+        <span class="role-badge role-{{ session.get('role') }}">{{ session.get('role').replace('_', ' ').title() }}</span>
+        {% endif %}
+        <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
+    </div>
+</header>
 
+<div class="page-shell">
+<div class="container">
     <h2>Register New User</h2>
-    <p class="subtitle">Admin only — create accounts for authorised personnel.</p>
+    <p class="subtitle">Admin-only operation for secure personnel onboarding.</p>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
@@ -38,13 +53,15 @@
             {% endfor %}
         </select>
 
-        <button type="submit">Create Account</button>
+        <button type="submit" class="btn btn-primary btn-full">Create Account</button>
 
     </form>
 
-    <br>
-    <a href="/dashboard"><button class="btn-secondary">Back to Dashboard</button></a>
+    <div class="footer-link">
+        <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
 
+</div>
 </div>
 
 </body>

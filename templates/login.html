@@ -1,31 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — Forensic Evidence System</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+<div class="auth-shell">
+    <aside class="brand-panel">
+        <div>
+            <span class="brand-kicker">Secure Access</span>
+            <h1>Cloud-Distributed Forensic Evidence Vault</h1>
+            <p>Access controlled environment for lawful evidence upload, chain-of-custody tracking, integrity validation, and distributed encrypted storage.</p>
+        </div>
+        <div class="brand-metrics">
+            <div class="metric"><span>Storage model</span><strong>Distributed Nodes</strong></div>
+            <div class="metric"><span>Integrity model</span><strong>SHA-256 + Blockchain</strong></div>
+            <div class="metric"><span>At-rest protection</span><strong>AES-256-GCM</strong></div>
+        </div>
+    </aside>
 
-<div class="container">
+    <section class="container">
+        <h2>Authorized Login</h2>
+        <p class="subtitle">Sign in with your assigned personnel credentials.</p>
 
-    <h2>Forensic Evidence Storage</h2>
-    <p class="subtitle">Authorised personnel only</p>
+        {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
 
-    {% if error %}
-    <div class="alert alert-error">{{ error }}</div>
-    {% endif %}
+        <form method="POST">
+            <label>Username</label>
+            <input name="username" placeholder="e.g. officer_john" required>
 
-    <form method="POST">
-        <label>Username</label>
-        <input name="username" placeholder="Username" required>
+            <label>Password</label>
+            <input name="password" type="password" placeholder="Enter password" required>
 
-        <label>Password</label>
-        <input name="password" type="password" placeholder="Password" required>
-
-        <button type="submit">Login</button>
-    </form>
-
+            <button type="submit" class="btn btn-primary btn-full">Enter Secure Portal</button>
+        </form>
+    </section>
 </div>
-
 </body>
 </html>

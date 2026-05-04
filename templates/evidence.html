@@ -1,20 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evidence Inventory</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
+<header class="topbar">
+    <div class="topbar-title">
+        <strong>Evidence Inventory</strong>
+        <span>Encrypted evidence catalog with OCR metadata</span>
+    </div>
+    <div class="topbar-actions">
+        <span class="role-badge role-{{ role }}">{{ role.replace('_', ' ').title() }}</span>
+        <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
+    </div>
+</header>
+
 <div class="dashboard">
 
     <div class="dashboard-header">
-        <h2>Evidence Inventory</h2>
-        <a href="/dashboard"><button class="btn-secondary">Back to Dashboard</button></a>
+        <div>
+            <h2>Evidence Inventory</h2>
+            <p class="dashboard-subline">Review uploaded artifacts, OCR outcomes, and encrypted storage metadata.</p>
+        </div>
+        <div class="dashboard-meta">
+            <span class="mono-chip">{{ user }}</span>
+            <span class="mono-chip">{{ evidence|length }} record(s)</span>
+        </div>
     </div>
 
     {% if evidence %}
-        <p class="subtitle">{{ evidence|length }} evidence record(s) on file</p>
         <div class="table-container">
             <table class="evidence-table">
                 <thead>
@@ -43,7 +61,7 @@
                         </td>
                         <td><small>{{ item.ocr_excerpt or "-" }}</small></td>
                         <td>
-                            <a href="/download/{{ item.id }}"><button class="btn-small">Download</button></a>
+                            <a href="/download/{{ item.id }}" class="btn btn-primary btn-small">Download</a>
                         </td>
                     </tr>
                     {% endfor %}

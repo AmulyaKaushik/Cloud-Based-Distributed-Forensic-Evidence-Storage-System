@@ -1,18 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audit Logs</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
+<header class="topbar">
+    <div class="topbar-title">
+        <strong>Audit Intelligence</strong>
+        <span>Chain-of-custody trace explorer</span>
+    </div>
+    <div class="topbar-actions">
+        {% if session.get('role') %}
+        <span class="role-badge role-{{ session.get('role') }}">{{ session.get('role').replace('_', ' ').title() }}</span>
+        {% endif %}
+        <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
+    </div>
+</header>
+
 <div class="dashboard">
 
     <div class="dashboard-header">
-        <h2>Chain-of-Custody Audit Logs</h2>
-        <div style="display: flex; gap: 10px;">
-            <a href="/logs/export?user={{ filter_user }}&action={{ filter_action }}&evidence={{ filter_evidence }}&status={{ filter_status }}"><button class="btn-secondary">Export CSV</button></a>
-            <a href="/dashboard"><button class="btn-secondary">Back</button></a>
+        <div>
+            <h2>Chain-of-Custody Audit Logs</h2>
+            <p class="dashboard-subline">Filter by principal, event, evidence artifact, or outcome status.</p>
+        </div>
+        <div class="topbar-actions">
+            <a href="/logs/export?user={{ filter_user }}&action={{ filter_action }}&evidence={{ filter_evidence }}&status={{ filter_status }}" class="btn btn-secondary">Export CSV</a>
+            <span class="mono-chip">{{ total_count }} record(s)</span>
         </div>
     </div>
 
@@ -20,17 +38,17 @@
         <input name="user" placeholder="Filter by user" value="{{ filter_user }}">
         <input name="action" placeholder="Filter by action (LOGIN, UPLOAD, VERIFY, DOWNLOAD, etc.)" value="{{ filter_action }}">
         <input name="evidence" placeholder="Filter by evidence filename" value="{{ filter_evidence }}">
-        <select name="status" style="flex: 0.5;">
+        <select name="status">
             <option value="">All Status</option>
             <option value="success" {% if filter_status == 'success' %}selected{% endif %}>Success</option>
             <option value="failure" {% if filter_status == 'failure' %}selected{% endif %}>Failure</option>
             <option value="warning" {% if filter_status == 'warning' %}selected{% endif %}>Warning</option>
         </select>
-        <button type="submit">Filter</button>
-        <a href="/logs"><button type="button" class="btn-secondary">Clear</button></a>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">Apply</button>
+            <a href="/logs" class="btn btn-secondary">Clear</a>
+        </div>
     </form>
-
-    <p class="subtitle">{{ total_count }} record(s) found</p>
 
     {% if logs %}
         <div class="table-container">
@@ -49,7 +67,7 @@
                 </thead>
                 <tbody>
                     {% for log in logs %}
-                    <tr class="status-{{ log.status }}">
+                    <tr>
                         <td><small>{{ log.timestamp }}</small></td>
                         <td><strong>{{ log.username }}</strong></td>
                         <td>{{ log.role }}</td>

@@ -1,73 +1,84 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="dashboard">
+<header class="topbar">
+    <div class="topbar-title">
+        <strong>Forensic Operations Console</strong>
+        <span>Cloud-Based Distributed Evidence Storage System</span>
+    </div>
+    <div class="topbar-actions">
+        <span class="role-badge role-{{ role }}">{{ role.replace('_', ' ').title() }}</span>
+        <a href="/logout" class="btn btn-secondary">Logout</a>
+    </div>
+</header>
 
+<div class="dashboard">
     <div class="dashboard-header">
         <div>
             <h2>Welcome, {{ user }}</h2>
-            <span class="role-badge role-{{ role }}">{{ role.replace('_', ' ').title() }}</span>
+            <p class="dashboard-subline">Manage evidence workflows, audit trails, and verification operations.</p>
         </div>
-        <a href="/logout"><button class="btn-secondary">Logout</button></a>
+        <div class="dashboard-meta">
+            <span class="mono-chip">{{ permissions|length }} permission(s) active</span>
+        </div>
     </div>
 
     <div class="card-grid">
-
         {% if 'upload' in permissions %}
         <a href="/upload" class="card">
-            <div class="card-icon">&#128228;</div>
+            <div class="card-icon">📤</div>
             <div class="card-title">Upload Evidence</div>
-            <div class="card-desc">Submit new digital evidence files</div>
+            <div class="card-desc">Ingest case files and replicate encrypted payloads to distributed storage nodes.</div>
         </a>
         {% endif %}
 
         {% if 'evidence' in permissions %}
         <a href="/evidence" class="card">
-            <div class="card-icon">&#128456;</div>
+            <div class="card-icon">🗂️</div>
             <div class="card-title">Evidence Inventory</div>
-            <div class="card-desc">View and download stored evidence</div>
+            <div class="card-desc">Browse, inspect metadata, and download evidence securely.</div>
         </a>
         {% endif %}
 
         {% if 'verify' in permissions %}
         <a href="/verify" class="card">
-            <div class="card-icon">&#10003;</div>
+            <div class="card-icon">✅</div>
             <div class="card-title">Verify Integrity</div>
-            <div class="card-desc">Check a file against its stored hash</div>
+            <div class="card-desc">Validate uploaded artifacts against immutable SHA-256 records.</div>
         </a>
         {% endif %}
 
         {% if 'logs' in permissions %}
         <a href="/logs" class="card">
-            <div class="card-icon">&#128203;</div>
+            <div class="card-icon">📜</div>
             <div class="card-title">Audit Logs</div>
-            <div class="card-desc">View the chain-of-custody trail</div>
+            <div class="card-desc">Trace chain-of-custody actions by actor, event, status, and evidence link.</div>
         </a>
         {% endif %}
 
         {% if 'logs' in permissions %}
         <a href="/blockchain" class="card">
-            <div class="card-icon">&#9679;&#9679;&#9679;</div>
+            <div class="card-icon">⛓️</div>
             <div class="card-title">Blockchain</div>
-            <div class="card-desc">View cryptographically signed audit chain</div>
+            <div class="card-desc">Inspect block ledger integrity and anchor snapshots for external verification.</div>
         </a>
         {% endif %}
 
         {% if 'manage_users' in permissions %}
         <a href="/register" class="card">
-            <div class="card-icon">&#128100;</div>
+            <div class="card-icon">👤</div>
             <div class="card-title">Manage Users</div>
-            <div class="card-desc">Create accounts for authorised personnel</div>
+            <div class="card-desc">Provision role-based accounts for authorized personnel.</div>
         </a>
         {% endif %}
-
     </div>
-
 </div>
 
 </body>
