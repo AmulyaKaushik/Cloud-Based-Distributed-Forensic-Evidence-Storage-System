@@ -31,6 +31,12 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is required. Configure a PostgreSQL connection string.")
 
+print(f"[DEBUG] DATABASE_URL is set: {len(DATABASE_URL)} chars")
+print(f"[DEBUG] DATABASE_URL starts with: {DATABASE_URL[:50]}...")
+print(f"[DEBUG] STORAGE_BACKEND: {os.environ.get('STORAGE_BACKEND', 'local')}")
+print(f"[DEBUG] SECRET_KEY is set: {bool(os.environ.get('SECRET_KEY'))}")
+print(f"[DEBUG] EVIDENCE_AES_KEY is set: {bool(os.environ.get('EVIDENCE_AES_KEY'))}")
+
 
 def get_database_url():
     """Return the configured PostgreSQL URL, adding SSL for Supabase if needed."""
@@ -79,15 +85,22 @@ def ensure_runtime_dirs():
 def get_db_connection():
     """Connect to Supabase PostgreSQL using explicit parameters."""
     from urllib.parse import urlparse
-    url = urlparse(get_database_url())
-    return psycopg.connect(
-        host=url.hostname,
-        port=url.port or 5432,
-        dbname=url.path.lstrip('/') or 'postgres',
-        user=url.username or 'postgres',
-        password=url.password,
-        sslmode='require'
-    )
+    try:
+        url = urlparse(get_database_url())
+        print(f"[DEBUG] Connecting to {url.hostname}:{url.port or 5432} as {url.username}...")
+        conn = psycopg.connect(
+            host=url.hostname,
+            port=url.port or 5432,
+            dbname=url.path.lstrip('/') or 'postgres',
+            user=url.username or 'postgres',
+            password=url.password,
+            sslmode='require'
+        )
+        print("[DEBUG] Database connection successful!")
+        return conn
+    except Exception as e:
+        print(f"[ERROR] Database connection failed: {e}")
+        raise
 
 
  

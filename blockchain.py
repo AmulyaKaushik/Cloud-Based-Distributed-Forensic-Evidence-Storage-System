@@ -1,6 +1,7 @@
 import os
 import json
 import hashlib
+import threading
 from datetime import datetime, timezone
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives import serialization
@@ -41,6 +42,7 @@ class Blockchain:
         os.makedirs(self.path_dir, exist_ok=True)
         self.chain_file = os.path.join(self.path_dir, "chain.json")
         self.key_file = os.path.join(self.path_dir, "key.pem")
+        self._chain_lock = threading.Lock()  # Serialize all blockchain modifications
 
         self._load_or_create_key()
         self.chain = self._load_chain()
@@ -101,12 +103,14 @@ class Blockchain:
         return Block(idx, ts, prev_hash, transactions, pub_hex, sig_hex, block_hash)
 
     def add_block(self, transactions):
-        prev_hash = self.chain[-1].hash if self.chain else "0" * 64
-        block = self._create_block(transactions, prev_hash)
-        self.chain.append(block)
-        # persist
-        self._save_chain([b.to_dict() for b in self.chain])
-        return block.to_dict()
+        """Add a block to the chain in a thread-safe manner."""
+        with self._chain_lock:
+            prev_hash = self.chain[-1].hash if self.chain else "0" * 64
+            block = self._create_block(transactions, prev_hash)
+            self.chain.append(block)
+            # persist
+            self._save_chain([b.to_dict() for b in self.chain])
+            return block.to_dict()
 
     def validate(self):
         """Validate chain integrity and signatures. Returns (valid:bool, message:str)."""
