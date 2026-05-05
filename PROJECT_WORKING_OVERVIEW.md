@@ -207,8 +207,7 @@ flowchart LR
 ### Schema Overview
 
 ```mermaid
-erDiagram
-    USERS ||--o{ AUDIT_LOGS : performs
+  USERS ||--o{ AUDIT_LOGS : performs
     USERS ||--o{ EVIDENCE : uploads
     EVIDENCE ||--o{ AUDIT_LOGS : references
     USERS ||--o{ ANCHORS : creates
@@ -231,15 +230,14 @@ erDiagram
     }
     
     AUDIT_LOGS {
-        int id PK
-        int evidence_id FK
-        string username
-        string user_role
-        string action
-        string status
-        string timestamp
-        string source_ip
-        string details
+      int id PK
+      int evidence_id FK
+      string user_role
+      string action
+      string status
+      string timestamp
+      string source_ip
+      string details
     }
     
     ANCHORS {
@@ -332,7 +330,7 @@ sequenceDiagram
     App->>Audit: write_log(UPLOAD)
     Audit->>DB: INSERT INTO audit_logs
     Audit->>BC: add_block(tx)
-    BC->>BC: Sign with Ed25519
+    BC->>BC: Sign block with Ed25519 and include signer_pub in block
     BC->>BC: Persist to chain.json
     App-->>User: Success + evidence_id
 ```
@@ -554,14 +552,9 @@ s3_client.head_bucket(Bucket=bucket_name)  # Verifies access
   "prev_hash": "a7f3e2c8...(64 hex chars)",
   "transactions": [
     {
-      "username": "alice",
-      "user_role": "police_officer",
-      "action": "UPLOAD",
-      "status": "success",
-      "timestamp": "2026-05-03 14:30:00.000000",
-      "source_ip": "192.168.1.100",
+      "type": "evidence_hash_store",
       "evidence_id": 1,
-      "details": "Filename: evidence.pdf, Encrypted: evidence.pdf.enc"
+      "sha256": "f5q8r2t9u1v3w6x8y9z..."
     }
   ],
   "signer_pub": "abcd1234...(64 hex chars, Ed25519 public key)",
@@ -619,9 +612,9 @@ for each block (starting from index 1):
   2. Recalculate block hash from current data
      └─ If mismatch, block was tampered with
   
-  3. Reconstruct public key from signer_pub hex
-     └─ Verify signature against current block hash
-     └─ If invalid, block was modified or signature forged
+    3. Reconstruct public key from signer_pub hex
+      └─ Verify signature against current block hash
+      └─ If invalid, block was modified or signature forged
      
 if all checks pass:
   return (True, "chain valid")
@@ -920,7 +913,9 @@ Response:
       "index": 0,
       "timestamp": "...",
       "prev_hash": "...",
-      "transactions": [...],
+      "transactions": [
+         { "type": "evidence_hash_store", "evidence_id": 15, "sha256": "2f2560..." }
+      ],
       "signer_pub": "...",
       "signature": "...",
       "hash": "..."
@@ -1135,7 +1130,7 @@ docker run -p 5000:5000 --env-file .env forensic-app
 - [ ] Chain initializes with genesis block
 - [ ] New blocks appended on each action
 - [ ] `/api/v1/validate-chain` returns valid
-- [ ] Public key accessible on dashboard
+ - [ ] Per-block `signer_pub` visible and public key accessible on dashboard
 - [ ] Anchor creation stores to database
 - [ ] Manual tampering detected by validation
 

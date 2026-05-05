@@ -25,8 +25,7 @@ Think of it like a **chain of sealed envelopes**:
 ```
 Envelope 1 (Block 0):
 ┌─────────────────────────┐
-│ Action: LOGIN           │
-│ User: admin             │
+│ Anchor: genesis         │
 │ Time: 2025-01-01 10:00  │
 │ Seal: A1B2C3D4          │ ← Special code for THIS envelope
 └─────────────────────────┘
@@ -34,18 +33,18 @@ Envelope 1 (Block 0):
 Envelope 2 (Block 1):
 ```
 ┌─────────────────────────────────────────┐
-│ Action: UPLOAD                          │
-│ User: police_officer                    │
-│ Time: 2025-01-01 10:15                  │
+│ Anchor: evidence_hash_store             │
+│ evidence_id: 15                         │
+│ sha256: 2f2560...                       │
 │ Previous Seal: A1B2C3D4  ← Points back   │
 │ Seal: E5F6G7H8          ← to previous   │
 └─────────────────────────────────────────┘
            ↓
 Envelope 3 (Block 2):
 ┌─────────────────────────────────────────┐
-│ Action: VERIFY                          │
-│ User: forensic_analyst                  │
-│ Time: 2025-01-01 10:30                  │
+│ Anchor: evidence_hash_store             │
+│ evidence_id: 16                         │
+│ sha256: 4ba0b2...                       │
 │ Previous Seal: E5F6G7H8  ← Points back   │
 │ Seal: I9J0K1L2          ← to previous   │
 └─────────────────────────────────────────┘
@@ -84,12 +83,12 @@ Output: 9k2m5p1x7q8r9s3t2u1v4w5x6y7z8a9b0c1d2e3f4g5h6i7j8k9l0m1n2o3p4
 
 Imagine you also **sign each envelope with a special pen that only you have** (called your private key):
 - Only you can create that signature
-- Everyone else can verify it's your signature using a public key you share
+ - Only you can create that signature
+ - Each block embeds the signer's public key (`signer_pub`) so signatures can be verified per-block; the app also stores `blockchain/key.pem` (private key) and exposes the public key for auditors
 - If someone tries to fake your signature, it won't match
 
 In this project:
-- Each block is signed with an **Ed25519 private key**
-- The public key is shared so auditors can verify
+- Each block is signed with an **Ed25519 private key** and each block embeds the signer's public key in the `signer_pub` field for per-block verification
 
 ---
 
@@ -118,28 +117,28 @@ audit_logs table:
 
 ### Step 3: It Also Gets Added to the Blockchain
 
-The same information gets added to a block:
+The blockchain stores evidence-hash anchors (not full audit records). On upload the app computes the SHA-256 of the original evidence and records an anchor transaction of the form `{"type": "evidence_hash_store", "evidence_id": <id>, "sha256": "<64hex>"}`.
+
+Example transaction written into a block:
 ```
 {
-  "username": "alice",
-  "action": "UPLOAD",
-  "filename": "evidence.pdf",
-  "status": "success",
-  "timestamp": "2025-05-03 14:30:15"
+  "type": "evidence_hash_store",
+  "evidence_id": 47,
+  "sha256": "f5q8r2t9u1v3w6x8y9z..."  // 64-hex chars
 }
 ```
 
-The app creates a **Block** with this data:
+The app creates a **Block** that includes these anchor transactions:
 ```
 Block 47:
 ┌──────────────────────────────────────────────────┐
 │ Index: 47                                        │
-│ Transactions: [{ username: alice, ... }]        │
+│ Transactions: [{ "type": "evidence_hash_store", "evidence_id": 47, "sha256": "..." }] │
 │ Timestamp: 2025-05-03 14:30:15.123              │
 │ Previous Hash: h2x7k9m3p1...  ← From Block 46   │
 │ Hash: f5q8r2t9u1v3w6x8y9z...  ← This block      │
 │ Signature: a1b2c3d4e5f6...    ← Signed by app   │
-│ Public Key: 7z8x9c0v1b2n...   ← To verify sig   │
+│ Signer Public Key (signer_pub): 7z8x9c0v1b2n...   ← To verify sig   │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -159,11 +158,12 @@ blockchain/key.pem
 
 When you visit `/blockchain` page or call `/api/v1/validate-chain`:
 1. App loads the entire chain from disk
-2. For each block, it recalculates the hash from the data
-3. It verifies the signature matches the public key
-4. It checks each block points to the previous one correctly
-5. If all checks pass: **Chain is Valid ✓**
-6. If anything is wrong: **Tampering Detected ✗**
+2. For each block, it recalculates the hash from the block payload (including transactions)
+3. It verifies the signature against the `signer_pub` embedded in the block (or an auditor-supplied public key)
+4. It checks each block's `prev_hash` matches the previous block's `hash`
+5. It also confirms that evidence-anchor transactions reference an `evidence_id` and a valid `sha256` format
+6. If all checks pass: **Chain is Valid ✓**
+7. If anything is wrong: **Tampering Detected ✗**
 
 ---
 
@@ -241,16 +241,16 @@ Validation runs:
 "e5f6g7h8 ≠ a1b2c3d4 — TAMPERING DETECTED!" ✗
 ```
 
-### Scenario: Bad guy tries to change a username in Block 101
+### Scenario: Bad guy tries to change the anchored hash in Block 101
 
 ```
 Original Block 101:
-{ username: "alice", action: "UPLOAD" }
+{ type: "evidence_hash_store", evidence_id: 101, sha256: "e5f6g7h8..." }
 Hash: e5f6g7h8
 Signature: xyz123
 
 Bad guy changes it:
-{ username: "hacker", action: "UPLOAD" }
+{ type: "evidence_hash_store", evidence_id: 101, sha256: "k1l2m3n4..." }
 Hash: ??? (recalculated as k1l2m3n4 ≠ e5f6g7h8!)
 Signature: xyz123 (no longer matches new hash!)
 
@@ -357,15 +357,15 @@ Response:
 │                                                             │
 │  FORENSIC EVIDENCE MANAGER                                  │
 │                                                             │
-│  Every Action:                                              │
+│  Every Evidence Anchor Event:                               │
 │  ├─ Logged to PostgreSQL (fast queries)                     │
-│  └─ Added to Blockchain (cryptographic proof)              │
+│  └─ Added to Blockchain as an evidence-hash anchor (`evidence_id -> sha256`)              │
 │                                                             │
 │  Blockchain:                                                │
 │  ├─ Chain of blocks, each locked to the previous           │
 │  ├─ Each block is mathematically signed                    │
 │  ├─ Any tampering is instantly detected                    │
-│  └─ Auditors can verify using the public key               │
+│  └─ Auditors can verify using the per-block `signer_pub` or the published public key               │
 │                                                             │
 │  Anchors:                                                   │
 │  ├─ Snapshots of chain state at important moments          │
@@ -384,7 +384,7 @@ Response:
 
 1. **Blockchain = Tamper-Proof Notebook** — entries can't be secretly changed
 2. **Hashes Lock Blocks Together** — changing one entry breaks all subsequent ones
-3. **Signatures Prove Authenticity** — anyone can verify with the public key
+3. **Signatures Prove Authenticity** — signatures can be verified using the per-block `signer_pub` or the published public key
 4. **Two Logs = Extra Safety** — database + blockchain, both protected
 5. **Anchors = Proofs of State** — "at time X, the chain was exactly this"
 6. **For Evidence Management** — proves nobody altered the audit trail
@@ -408,8 +408,8 @@ curl -X POST http://localhost:5000/api/v1/anchor
 
 Or visit the UI:
 - Go to `/blockchain` page (after logging in)
-- See all blocks, their hashes, and signatures
-- See the public key
+- See all blocks, their hashes, signatures, and the embedded `signer_pub` values
+- See the published public key (for external verification)
 - See any anchors that have been created
 
 ---

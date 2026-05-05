@@ -30,7 +30,7 @@ This forensic evidence management system provides a complete solution for secure
 - **Secure Evidence Storage:** AES-256-GCM encryption at rest with automatic replication or cloud backup
 - **Integrity Verification:** SHA-256 hashing to detect tampering
 - **Chain-of-Custody Tracking:** Comprehensive audit logging with PostgreSQL persistence
-- **Tamper-Proof Integrity:** Local Ed25519-signed blockchain verification of evidence `id -> SHA-256` anchors
+ - **Tamper-Proof Integrity:** Local Ed25519-signed blockchain verification of evidence `id -> SHA-256` anchors; each block embeds the signer's public key (`signer_pub`) and a signature for per-block verification
 - **Chain-of-Custody Audit Trail:** PostgreSQL-backed audit logs with filtering and export
 - **Role-Based Access Control:** Four distinct roles with granular permissions
 - **Pluggable Storage:** Support for both local multi-node replication and AWS S3 backends
@@ -72,11 +72,11 @@ This forensic evidence management system provides a complete solution for secure
 
 ### ⛓️ Blockchain Audit Ledger
 
-- Off-chain, append-only signed ledger (Ed25519 cryptography)
+ - Off-chain, append-only signed ledger (Ed25519); each block embeds `signer_pub` and a signature for independent verification
 - Every audit event appended to immutable chain
 - Chain validation endpoints for auditor verification
 - Anchor snapshots to capture chain state at critical moments
-- Public key exposed for external verification
+ - Per-block `signer_pub` embedded in each block; `blockchain/key.pem` (public key) is also available for external verification
 
 ### 🖥️ Web Interface
 
@@ -175,7 +175,7 @@ flowchart TB
     SA -->|Local Mode| LN["📁 Local Storage Nodes<br/>node1, node2, node3"]
     SA -->|S3 Mode| S3["☁️ AWS S3 Bucket<br/>(Production)"]
     
-    UI -->|Append Block| BC["⛓️ Blockchain<br/>chain.json<br/>Ed25519 Signed"]
+    UI -->|Append Block| BC["⛓️ Blockchain<br/>chain.json<br/>Ed25519-signed (per-block signer_pub & signature)"]
     API -->|Append Block| BC
     
     BC -->|Hash + Sign| Auditor["👮 External Auditor<br/>Verify Immutability"]
@@ -203,7 +203,7 @@ sequenceDiagram
     App->>Audit: write_log(UPLOAD)
     Audit->>DB: Insert Audit Entry
     Audit->>BC: add_block(tx)
-    BC->>BC: Sign with Ed25519
+    BC->>BC: Sign block with Ed25519 and include signer_pub in block
     App-->>User: Success
 ```
 
@@ -633,20 +633,22 @@ The app stores SHA-256 evidence hashes on the local blockchain (`blockchain/chai
 
 ### Overview
 
-The blockchain is an **off-chain, tamper-evident evidence ledger** that provides cryptographic proof of evidence-hash anchors. Key characteristics:
+The blockchain is an **off-chain, tamper-evident evidence ledger** that provides cryptographic proof of evidence-hash anchors.
+
+Key characteristics:
 
 - **Off-chain:** Persisted locally (not on a public blockchain)
-- **Ed25519-signed:** Each block is signed with a private key; signatures can be verified with the public key
+- **Ed25519-signed:** Each block is signed with a private key; each block embeds the signer's public key (`signer_pub`) and a signature for per-block verification
 - **Append-only:** New evidence hash anchors create new blocks; old blocks cannot be modified without breaking subsequent signatures
-- **Immutable proof:** Auditors can verify the chain JSON and public key independently
+- **Immutable proof:** Auditors can verify the chain JSON and per-block `signer_pub` values independently
 
 ### How It Works
 
 1. **Every evidence anchor event** (`CHAIN_STORE`) is:
    - Written to the PostgreSQL `audit_logs` table
    - Appended as a transaction to a new blockchain block
-   - Signed with the app's Ed25519 private key
-   - Persisted to `blockchain/chain.json`
+    - Signed with the app's Ed25519 private key; each block includes the signing public key in the `signer_pub` field
+    - Persisted to `blockchain/chain.json`
 
 2. **Each anchor block contains:**
    - Index (position in chain)
@@ -654,14 +656,14 @@ The blockchain is an **off-chain, tamper-evident evidence ledger** that provides
    - List of transactions (`evidence_id`, `sha256`)
    - Hash of the previous block
    - Hash of current block data
-   - Ed25519 signature
-   - Public key for verification
+    - Ed25519 signature
+    - `signer_pub` (hex) embedded in the block for verification
 
 3. **Validation:**
    - GET `/api/v1/validate-chain` verifies:
      - Each block's hash matches its data
      - Each block links to the previous block (prev_hash matches)
-     - Each signature is valid (recoverable with public key)
+      - Each signature is validated using the `signer_pub` embedded in the block
    - If any tampering is detected, validation fails
 
 ### Anchors
