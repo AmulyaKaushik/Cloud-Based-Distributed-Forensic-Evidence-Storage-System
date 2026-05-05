@@ -167,6 +167,58 @@ class ForensicAppTestCase(unittest.TestCase):
         self.assertEqual(tampered_response.status_code, 200)
         self.assertIn(b"Tampering Detected", tampered_response.data)
 
+    def test_verify_detects_database_hash_tampering_for_anchored_evidence(self):
+        self.login("admin", "admin123")
+
+        upload_response = self.client.post(
+            "/upload",
+            data={"file": (io.BytesIO(b"db tamper check"), "db-tamper.txt")},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(upload_response.status_code, 200)
+
+        conn = self.module.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE evidence SET hash=%s WHERE filename=%s",
+            ("f" * 64, "db-tamper.txt"),
+        )
+        conn.commit()
+        conn.close()
+
+        verify_response = self.client.post(
+            "/verify",
+            data={"file": (io.BytesIO(b"db tamper check"), "db-tamper.txt")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(verify_response.status_code, 200)
+        self.assertIn(b"Tampering Detected", verify_response.data)
+
+    def test_validate_chain_detects_disk_tampering(self):
+        self.login("admin", "admin123")
+
+        upload_response = self.client.post(
+            "/upload",
+            data={"file": (io.BytesIO(b"chain tamper check"), "chain-tamper.txt")},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(upload_response.status_code, 200)
+
+        chain_file = os.path.join(self.runtime_dir, "blockchain", "chain.json")
+        with open(chain_file, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        raw[1]["transactions"][0]["sha256"] = "e" * 64
+
+        with open(chain_file, "w", encoding="utf-8") as f:
+            json.dump(raw, f, indent=2)
+
+        response = self.client.get("/api/v1/validate-chain")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertFalse(payload["valid"])
+
     def test_api_v1_health_returns_json(self):
         response = self.client.get("/api/v1/health")
         self.assertIn(response.status_code, (200, 503))

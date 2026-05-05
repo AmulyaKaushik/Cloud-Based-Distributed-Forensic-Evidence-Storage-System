@@ -361,8 +361,9 @@ except Exception as e:
 storage_adapter = get_storage_adapter()
 from blockchain import Blockchain
 
-# Initialize local blockchain for audit entries
+# Initialize local blockchain for evidence hash anchoring
 evidence_chain = Blockchain(os.path.join(RUNTIME_DATA_DIR, "blockchain"))
+print("[INFO] Local blockchain evidence verification enabled.")
 
 
  
@@ -397,22 +398,6 @@ def write_log(username, action, evidence_id=None, status="success", details=""):
             VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
         """, (username, role, action, status, timestamp, source_ip, evidence_id, details))
         conn.commit()
-        # Best-effort: append the same audit entry to the local blockchain
-        try:
-            tx = {
-                "username": username,
-                "user_role": role,
-                "action": action,
-                "status": status,
-                "timestamp": timestamp,
-                "source_ip": source_ip,
-                "evidence_id": evidence_id,
-                "details": details,
-            }
-            evidence_chain.add_block([tx])
-        except Exception:
-            # Do not disrupt main flow if blockchain persistence fails — write to legacy file instead.
-            write_log_file(username, f"BLOCKCHAIN_APPEND_FAILED ACTION:{action}")
         conn.close()
     except psycopg.Error:
         # Avoid crashing primary action if logging fails under transient lock.
@@ -438,6 +423,43 @@ def generate_hash(path):
                 break
             sha.update(chunk)
     return sha.hexdigest()
+
+
+def evidence_has_on_chain_anchor(evidence_id):
+    try:
+        return evidence_chain.has_evidence_hash(evidence_id)
+    except ValueError:
+        return False
+
+
+def evaluate_evidence_integrity(evidence_id, candidate_hash, stored_hash):
+    """
+    Verify integrity against the local evidence blockchain first.
+    Falls back to DB hash comparison for backward compatibility.
+    Returns: (verified: bool, source: str, note: str)
+    """
+    if evidence_has_on_chain_anchor(evidence_id):
+        try:
+            chain_hash = evidence_chain.get_evidence_hash(evidence_id)
+            if chain_hash is None:
+                return False, "local_blockchain", "on_chain_anchor_missing"
+
+            normalized_candidate_hash = (candidate_hash or "").strip().lower()
+            normalized_stored_hash = (stored_hash or "").strip().lower()
+
+            if normalized_stored_hash != chain_hash:
+                return False, "local_blockchain", "db_chain_mismatch"
+
+            if normalized_candidate_hash != chain_hash:
+                return False, "local_blockchain", "on_chain_mismatch"
+
+            return True, "local_blockchain", "on_chain_match"
+        except ValueError as exc:
+            return False, "local_blockchain_error", f"local_chain_validation_error:{exc}"
+        except RuntimeError as exc:
+            return False, "local_blockchain_error", f"local_chain_unavailable:{exc}"
+
+    return stored_hash == candidate_hash, "database_fallback", "legacy_or_unanchored_record"
 
 
  
@@ -588,6 +610,7 @@ def upload():
         ocr_status = "not_requested"
         selected_ocr_engine = None
         ocr_message = None
+        local_chain_block_hash = None
 
         try:
             file.save(temp_plain)
@@ -639,6 +662,28 @@ def upload():
                 status="success",
                 details=f"Filename: {safe_name}, Encrypted: {encrypted_name}, OCR: {ocr_status}",
             )
+
+            try:
+                local_chain_receipt = evidence_chain.store_evidence_hash(ev_id, hash_value)
+                local_chain_block_hash = local_chain_receipt["block_hash"]
+                write_log(
+                    session["user"],
+                    "CHAIN_STORE",
+                    evidence_id=ev_id,
+                    status="success",
+                    details=(
+                        "Stored SHA-256 on local blockchain. "
+                        f"block_index={local_chain_receipt['block_index']} block_hash={local_chain_block_hash}"
+                    ),
+                )
+            except (ValueError, OSError) as exc:
+                write_log(
+                    session["user"],
+                    "CHAIN_STORE",
+                    evidence_id=ev_id,
+                    status="failure",
+                    details=f"Local blockchain hash store failed: {exc}",
+                )
         finally:
             if os.path.exists(temp_plain):
                 os.remove(temp_plain)
@@ -646,6 +691,8 @@ def upload():
                 os.remove(temp_encrypted)
 
         success = f"'{safe_name}' uploaded and replicated successfully."
+        if local_chain_block_hash:
+            success = f"{success} Local chain block: {local_chain_block_hash}."
         if run_ocr:
             success = f"{success} OCR: {ocr_message}."
 
@@ -675,22 +722,64 @@ def verify():
 
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT hash FROM evidence WHERE filename=%s", (safe_name,))
+        c.execute("SELECT id, hash FROM evidence WHERE filename=%s ORDER BY id DESC LIMIT 1", (safe_name,))
         result = c.fetchone()
         conn.close()
 
         os.remove(path)
 
-        if result and result[0] == new_hash:
-            write_log(session["user"], "VERIFY", status="success", details=f"Filename: {safe_name}, Result: PASSED")
-            return render_template("verify.html",
-                                   result="verified",
-                                   message="Integrity Verified — No Tampering Detected.")
-        else:
-            write_log(session["user"], "VERIFY", status="warning", details=f"Filename: {safe_name}, Result: TAMPER_DETECTED")
+        if not result:
+            write_log(
+                session["user"],
+                "VERIFY",
+                status="failure",
+                details=f"Filename: {safe_name}, Result: EVIDENCE_NOT_FOUND",
+            )
             return render_template("verify.html",
                                    result="tampered",
-                                   message="Tampering Detected — File hash does not match stored record.")
+                                   message="Evidence record not found for this filename.")
+
+        evidence_id, stored_hash = result
+        verified, verification_source, verification_note = evaluate_evidence_integrity(
+            evidence_id=evidence_id,
+            candidate_hash=new_hash,
+            stored_hash=stored_hash,
+        )
+
+        if verified:
+            write_log(
+                session["user"],
+                "VERIFY",
+                evidence_id=evidence_id,
+                status="success",
+                details=f"Filename: {safe_name}, Result: PASSED, Source: {verification_source}, Note: {verification_note}",
+            )
+
+            message = "Integrity Verified — No Tampering Detected."
+            if verification_source == "local_blockchain":
+                message = "Integrity Verified — SHA-256 matches local blockchain record."
+
+            return render_template("verify.html",
+                                   result="verified",
+                                   message=message)
+
+        write_log(
+            session["user"],
+            "VERIFY",
+            evidence_id=evidence_id,
+            status="warning",
+            details=f"Filename: {safe_name}, Result: TAMPER_DETECTED, Source: {verification_source}, Note: {verification_note}",
+        )
+
+        message = "Tampering Detected — File hash does not match stored record."
+        if verification_source == "local_blockchain":
+            message = "Tampering Detected — File hash does not match local blockchain record."
+        elif verification_source == "local_blockchain_error":
+            message = "Verification Failed — Local blockchain integrity check is currently unavailable."
+
+        return render_template("verify.html",
+                               result="tampered",
+                               message=message)
 
     return render_template("verify.html")
 
@@ -778,7 +867,7 @@ def download(evidence_id):
 
 
  
-# VIEW BLOCKCHAIN AUDIT CHAIN
+# VIEW EVIDENCE HASH BLOCKCHAIN
  
 
 @app.route("/blockchain")
@@ -1113,14 +1202,25 @@ def api_verify_hash():
         return jsonify({"error": "not_found", "message": "evidence file not found"}), 404
 
     evidence_id, stored_hash = row
-    verified = stored_hash == sha256_hash
+    verified, verification_source, verification_note = evaluate_evidence_integrity(
+        evidence_id=evidence_id,
+        candidate_hash=sha256_hash,
+        stored_hash=stored_hash,
+    )
     write_log(
         session["user"],
         "VERIFY_API",
         evidence_id=evidence_id,
         status="success" if verified else "warning",
-        details=f"Filename: {filename}, Result: {'PASSED' if verified else 'TAMPER_DETECTED'}",
+        details=(
+            f"Filename: {filename}, Result: {'PASSED' if verified else 'TAMPER_DETECTED'}, "
+            f"Source: {verification_source}, Note: {verification_note}"
+        ),
     )
+
+    response_message = "Integrity Verified" if verified else "Tampering Detected"
+    if verification_source == "local_blockchain_error":
+        response_message = "Local blockchain verification unavailable"
 
     return jsonify(
         {
@@ -1128,7 +1228,8 @@ def api_verify_hash():
             "filename": filename,
             "evidence_id": evidence_id,
             "verified": verified,
-            "message": "Integrity Verified" if verified else "Tampering Detected",
+            "verification_source": verification_source,
+            "message": response_message,
         }
     )
 

@@ -6,3 +6,4 @@ psycopg[binary]==3.3.3
 boto3==1.28.0
 Pillow==10.4.0
 pytesseract==0.3.13
+web3==6.20.1

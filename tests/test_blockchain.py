@@ -81,15 +81,22 @@ class TestBlockchain(unittest.TestCase):
         self.assertTrue(valid)
         self.assertIn("valid", msg.lower())
 
-    def test_blockchain_validate_detects_tampering(self):
+    def test_blockchain_validate_detects_disk_tampering(self):
         bc = Blockchain(self.temp_dir)
         bc.add_block([{"action": "test"}])
 
-        # Tamper with a block's transaction
-        bc.chain[1].transactions[0]["action"] = "tampered"
+        chain_file = os.path.join(self.temp_dir, "chain.json")
+        with open(chain_file, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        raw[1]["transactions"][0]["action"] = "tampered"
+
+        with open(chain_file, "w", encoding="utf-8") as f:
+            json.dump(raw, f, indent=2)
 
         valid, msg = bc.validate()
         self.assertFalse(valid)
+        self.assertIn("mismatch", msg.lower())
 
     def test_blockchain_signature_verification(self):
         bc = Blockchain(self.temp_dir)
@@ -123,6 +130,41 @@ class TestBlockchain(unittest.TestCase):
         ]
         block_dict = bc.add_block(txs)
         self.assertEqual(block_dict["transactions"], txs)
+
+    def test_store_and_verify_evidence_hash(self):
+        bc = Blockchain(self.temp_dir)
+        sha256_hash = "a" * 64
+
+        receipt = bc.store_evidence_hash(101, sha256_hash)
+        self.assertEqual(receipt["evidence_id"], 101)
+        self.assertEqual(receipt["sha256"], sha256_hash)
+        self.assertTrue(bc.verify_evidence_hash(101, sha256_hash))
+        self.assertTrue(bc.has_evidence_hash(101))
+
+    def test_store_evidence_hash_rejects_duplicate_id(self):
+        bc = Blockchain(self.temp_dir)
+        bc.store_evidence_hash(5, "b" * 64)
+
+        with self.assertRaises(ValueError):
+            bc.store_evidence_hash(5, "c" * 64)
+
+    def test_store_evidence_hash_rejects_invalid_hash(self):
+        bc = Blockchain(self.temp_dir)
+
+        with self.assertRaises(ValueError):
+            bc.store_evidence_hash(10, "not-a-valid-sha256")
+
+    def test_verify_evidence_hash_returns_false_when_missing(self):
+        bc = Blockchain(self.temp_dir)
+        self.assertFalse(bc.verify_evidence_hash(999, "d" * 64))
+
+    def test_store_evidence_hash_normalizes_hash_case(self):
+        bc = Blockchain(self.temp_dir)
+        mixed_case = "AbCd" * 16
+
+        bc.store_evidence_hash(44, mixed_case)
+        self.assertEqual(bc.get_evidence_hash(44), mixed_case.lower())
+        self.assertTrue(bc.verify_evidence_hash(44, mixed_case))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Forensic Evidence Management System
 
-A secure, production-ready web application for managing, verifying, and auditing digital forensic evidence with tamper-proof chain-of-custody tracking, end-to-end encryption, and cryptographic audit proof via an off-chain blockchain ledger.
+A secure, production-ready web application for managing, verifying, and auditing digital forensic evidence with tamper-proof chain-of-custody tracking, end-to-end encryption, and local blockchain-backed evidence hash verification.
 
 ---
 
@@ -15,7 +15,8 @@ A secure, production-ready web application for managing, verifying, and auditing
 - [API Reference](#api-reference)
 - [Database Schema](#database-schema)
 - [Storage Backends](#storage-backends)
-- [Blockchain & Audit Ledger](#blockchain--audit-ledger)
+- [Local Blockchain Evidence Verification](#local-blockchain-evidence-verification)
+- [Blockchain Evidence Ledger](#blockchain-evidence-ledger)
 - [Security & Access Control](#security--access-control)
 - [Deployment](#deployment)
 - [Troubleshooting](#troubleshooting)
@@ -29,7 +30,8 @@ This forensic evidence management system provides a complete solution for secure
 - **Secure Evidence Storage:** AES-256-GCM encryption at rest with automatic replication or cloud backup
 - **Integrity Verification:** SHA-256 hashing to detect tampering
 - **Chain-of-Custody Tracking:** Comprehensive audit logging with PostgreSQL persistence
-- **Tamper Proof Proof:** An off-chain, Ed25519-signed blockchain ledger for immutable audit trail verification
+- **Tamper-Proof Integrity:** Local Ed25519-signed blockchain verification of evidence `id -> SHA-256` anchors
+- **Chain-of-Custody Audit Trail:** PostgreSQL-backed audit logs with filtering and export
 - **Role-Based Access Control:** Four distinct roles with granular permissions
 - **Pluggable Storage:** Support for both local multi-node replication and AWS S3 backends
 
@@ -290,7 +292,7 @@ pip install boto3  # Required for S3 backend
    - Optionally extracts OCR text and stores OCR metadata
    - Replicates encrypted copy to storage backend
    - Stores metadata and hash in database
-   - Appends audit entry to blockchain
+   - Stores `evidence_id` and SHA-256 hash on local blockchain
 6. Receive confirmation with evidence ID
 
 ### Workflow: Verify Integrity
@@ -299,8 +301,9 @@ pip install boto3  # Required for S3 backend
 2. Upload the same file again
 3. System:
    - Computes SHA-256 hash of uploaded file
-   - Compares with stored hash
-   - Logs result to audit trail and blockchain
+   - Verifies against local blockchain when anchored
+   - Falls back to DB hash for legacy/unanchored evidence
+   - Logs result to audit trail
 4. Receive result: **"Integrity Verified"** or **"Tampering Detected"**
 
 ### Workflow: View Audit Logs
@@ -405,6 +408,7 @@ Response:
   "filename": "evidence.pdf",
   "evidence_id": 1,
   "verified": true,
+  "verification_source": "local_blockchain",
   "message": "Integrity Verified"
 }
 ```
@@ -607,29 +611,47 @@ curl http://localhost:5000/health
 
 ---
 
-## Blockchain & Audit Ledger
+## Local Blockchain Evidence Verification
+
+The app stores SHA-256 evidence hashes on the local blockchain (`blockchain/chain.json`) keyed by evidence ID and verifies integrity against that immutable ledger during `/verify` and `/api/v1/verify/hash`.
+
+### Behavior
+
+- Upload flow anchors `evidence_id -> sha256` into a signed local block (`CHAIN_STORE` audit action).
+- Verification checks local blockchain first when an anchor exists.
+- Legacy/unanchored records are verified by database hash comparison.
+
+### End-to-End Check
+
+1. Upload a file through `/upload`; the app stores DB metadata and appends a local blockchain evidence-hash block.
+2. Verify the same file via `/verify`; the app recomputes SHA-256 and validates against local blockchain.
+3. For API flow, call `POST /api/v1/verify/hash` and check `verification_source` in the JSON response (`local_blockchain` or `database_fallback`).
+
+---
+
+## Blockchain Evidence Ledger
 
 ### Overview
 
-The blockchain is an **off-chain, tamper-evident audit ledger** that provides cryptographic proof of the integrity of the audit trail. Key characteristics:
+The blockchain is an **off-chain, tamper-evident evidence ledger** that provides cryptographic proof of evidence-hash anchors. Key characteristics:
 
 - **Off-chain:** Persisted locally (not on a public blockchain)
 - **Ed25519-signed:** Each block is signed with a private key; signatures can be verified with the public key
-- **Append-only:** New audit entries create new blocks; old blocks cannot be modified without breaking subsequent signatures
-- **Immutable proof:** Auditors can download the chain JSON and public key and verify independently that no entries were tampered with
+- **Append-only:** New evidence hash anchors create new blocks; old blocks cannot be modified without breaking subsequent signatures
+- **Immutable proof:** Auditors can verify the chain JSON and public key independently
 
 ### How It Works
 
-1. **Every audit event** (LOGIN, UPLOAD, VERIFY, DOWNLOAD, etc.) is:
-   - Written to the PostgreSQL audit_logs table
+1. **Every evidence anchor event** (`CHAIN_STORE`) is:
+   - Written to the PostgreSQL `audit_logs` table
    - Appended as a transaction to a new blockchain block
    - Signed with the app's Ed25519 private key
    - Persisted to `blockchain/chain.json`
 
-2. **Each block contains:**
+2. **Each anchor block contains:**
    - Index (position in chain)
    - Timestamp
-   - List of transactions (audit entries)
+   - List of transactions (`evidence_id`, `sha256`)
    - Hash of the previous block
    - Hash of current block data
    - Ed25519 signature
