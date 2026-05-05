@@ -202,24 +202,33 @@ class S3StorageAdapter(StorageAdapter):
 
     def get(self, remote_key, local_path=None):
         """Download file from S3."""
-        if local_path is None:
-            response = self.s3_client.get_object(
-                Bucket=self.bucket_name, Key=remote_key
-            )
-            return response["Body"].read()
-        else:
-            self.s3_client.download_file(
-                self.bucket_name, remote_key, local_path
-            )
-            return None
+        try:
+            if local_path is None:
+                response = self.s3_client.get_object(
+                    Bucket=self.bucket_name, Key=remote_key
+                )
+                return response["Body"].read()
+            else:
+                self.s3_client.download_file(
+                    self.bucket_name, remote_key, local_path
+                )
+                return None
+        except Exception as exc:
+            error_code = getattr(exc, "response", {}).get("Error", {}).get("Code")
+            if error_code in ("NoSuchKey", "404", "NotFound"):
+                raise FileNotFoundError(f"File {remote_key} not found in S3.")
+            raise
 
     def exists(self, remote_key):
         """Check if file exists in S3."""
         try:
             self.s3_client.head_object(Bucket=self.bucket_name, Key=remote_key)
             return True
-        except self.s3_client.exceptions.NoSuchKey:
-            return False
+        except Exception as exc:
+            error_code = getattr(exc, "response", {}).get("Error", {}).get("Code")
+            if error_code in ("NoSuchKey", "404", "NotFound"):
+                return False
+            raise
 
     def delete(self, remote_key):
         """Delete file from S3."""
@@ -229,13 +238,24 @@ class S3StorageAdapter(StorageAdapter):
         """Check S3 connectivity."""
         try:
             self.s3_client.head_bucket(Bucket=self.bucket_name)
-            return {"healthy": True, "message": f"S3 bucket '{self.bucket_name}' accessible", "backend": "s3", "bucket": self.bucket_name}
+            return {
+                "healthy": True,
+                "message": f"S3 bucket '{self.bucket_name}' accessible",
+                "backend": "s3",
+                "bucket": self.bucket_name,
+                "nodes": [
+                    {"bucket": self.bucket_name, "region": self.region, "accessible": True}
+                ],
+            }
         except Exception as e:
             return {
                 "healthy": False,
                 "message": f"S3 health check failed: {str(e)}",
                 "backend": "s3",
                 "bucket": self.bucket_name,
+                "nodes": [
+                    {"bucket": self.bucket_name, "region": self.region, "accessible": False}
+                ],
             }
 
 

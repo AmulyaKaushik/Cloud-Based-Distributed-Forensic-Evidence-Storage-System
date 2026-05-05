@@ -29,6 +29,8 @@ Stores encrypted evidence directly to Amazon S3 with built-in redundancy and ava
 export STORAGE_BACKEND=s3
 export S3_BUCKET_NAME=my-forensic-evidence-bucket
 export AWS_REGION=us-east-1  # Optional; defaults to us-east-1
+export AWS_ACCESS_KEY_ID=your-access-key-id
+export AWS_SECRET_ACCESS_KEY=your-secret-access-key
 ```
 
 **Use case:** Production deployments requiring cloud-scale availability, automatic backups, and global access.
@@ -49,7 +51,12 @@ Response:
   "database": "ok (5 users)",
   "storage": {
     "healthy": true,
-    "message": "All nodes accessible" 
+    "message": "S3 bucket 'my-forensic-evidence-bucket' accessible",
+    "backend": "s3",
+    "bucket": "my-forensic-evidence-bucket",
+    "nodes": [
+      {"bucket": "my-forensic-evidence-bucket", "region": "us-east-1", "accessible": true}
+    ]
   }
 }
 ```
@@ -86,10 +93,12 @@ To migrate from local storage to S3:
 
 1. Set up S3 bucket and AWS credentials
 2. Update environment configuration:
-   ```bash
-   export STORAGE_BACKEND=s3
-   export S3_BUCKET_NAME=forensic-bucket
-   ```
+  ```bash
+  export STORAGE_BACKEND=s3
+  export S3_BUCKET_NAME=forensic-bucket
+  export AWS_ACCESS_KEY_ID=your-access-key-id
+  export AWS_SECRET_ACCESS_KEY=your-secret-access-key
+  ```
 3. Restart the application
 4. New uploads automatically use S3
 5. Existing local files remain accessible if both backends are available during transition period

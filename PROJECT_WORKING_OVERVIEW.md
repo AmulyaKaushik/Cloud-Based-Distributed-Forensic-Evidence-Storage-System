@@ -207,7 +207,8 @@ flowchart LR
 ### Schema Overview
 
 ```mermaid
-  USERS ||--o{ AUDIT_LOGS : performs
+erDiagram
+    USERS ||--o{ AUDIT_LOGS : performs
     USERS ||--o{ EVIDENCE : uploads
     EVIDENCE ||--o{ AUDIT_LOGS : references
     USERS ||--o{ ANCHORS : creates
@@ -488,6 +489,8 @@ raise FileNotFoundError
 export STORAGE_BACKEND=s3
 export S3_BUCKET_NAME=my-forensic-bucket
 export AWS_REGION=us-west-2
+export AWS_ACCESS_KEY_ID=your-access-key-id
+export AWS_SECRET_ACCESS_KEY=your-secret-access-key
 ```
 
 **AWS credentials (one of):**
@@ -1059,6 +1062,7 @@ python app.py
 - `SECRET_KEY` — Flask session key
 - `STORAGE_BACKEND` — local or s3
 - `S3_BUCKET_NAME`, `AWS_REGION` (if S3)
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (if using static keys)
 - AWS credentials (via GitHub secrets or integration)
 
 **Runtime data location:** `/tmp/forensic2` (Vercel's temp filesystem, ephemeral)

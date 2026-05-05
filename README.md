@@ -139,6 +139,8 @@ This forensic evidence management system provides a complete solution for secure
     # If using S3 storage
     S3_BUCKET_NAME=your-bucket-name
     AWS_REGION=us-east-1
+    AWS_ACCESS_KEY_ID=your-access-key-id
+    AWS_SECRET_ACCESS_KEY=your-secret-access-key
    ```
 
 5. **Run the application:**
@@ -221,6 +223,8 @@ sequenceDiagram
 | `STORAGE_BACKEND` | ❌ No | `local` | `local` or `s3` |
 | `S3_BUCKET_NAME` | If S3 | — | AWS S3 bucket name (required if `STORAGE_BACKEND=s3`) |
 | `AWS_REGION` | ❌ No | `us-east-1` | AWS region for S3 |
+| `AWS_ACCESS_KEY_ID` | If S3 | — | AWS access key ID (if not using IAM role/shared credentials) |
+| `AWS_SECRET_ACCESS_KEY` | If S3 | — | AWS secret access key (if not using IAM role/shared credentials) |
 | `RUNTIME_DATA_DIR` | ❌ No | Project root (or `/tmp/forensic2` on Vercel) | Directory for runtime data (blockchain, audit logs, local nodes) |
 
 ### OCR Configuration (Optional)
@@ -259,11 +263,13 @@ export RUNTIME_DATA_DIR=/path/to/storage
 ```
 
 #### AWS S3 (Production)
-Requires AWS credentials configured locally or via IAM role.
+Requires AWS credentials configured via env vars, IAM role, or shared credentials file.
 ```bash
 export STORAGE_BACKEND=s3
 export S3_BUCKET_NAME=my-forensic-bucket
 export AWS_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=your-access-key-id
+export AWS_SECRET_ACCESS_KEY=your-secret-access-key
 pip install boto3  # Required for S3 backend
 ```
 
@@ -353,7 +359,15 @@ Response:
   "app": "forensic-evidence-manager",
   "timestamp": "2026-05-03 14:30:00.123456",
   "database": "ok (5 users)",
-  "storage": { "healthy": true, "message": "All nodes accessible", "backend": "local" }
+  "storage": {
+    "healthy": true,
+    "message": "S3 bucket 'my-forensic-bucket' accessible",
+    "backend": "s3",
+    "bucket": "my-forensic-bucket",
+    "nodes": [
+      {"bucket": "my-forensic-bucket", "region": "us-east-1", "accessible": true}
+    ]
+  }
 }
 ```
 
